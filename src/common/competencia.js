@@ -51,11 +51,19 @@
     return out;
   }
 
-  // 'YYYY-MM' -> 'MM/YYYY' (formato comumente exibido no eSocial).
+  // 'YYYY-MM' -> 'MM/YYYY' (formato exibido no eSocial).
   function paraMMYYYY(comp) {
     const n = normalizar(comp);
     if (!n) return comp;
     return `${n.slice(5, 7)}/${n.slice(0, 4)}`;
+  }
+
+  // 'YYYY-MM' -> 'MMYYYY' (formato aceito pelo campo PeriodoApuracaoPesquisa
+  // da tela "IRRF por trabalhador", ex.: 012025).
+  function paraMMAAAA(comp) {
+    const n = normalizar(comp);
+    if (!n) return comp;
+    return `${n.slice(5, 7)}${n.slice(0, 4)}`;
   }
 
   NS.competencia = {
@@ -63,6 +71,7 @@
     valida,
     gerarIntervalo,
     paraMMYYYY,
+    paraMMAAAA,
     paraIndice,
     deIndice,
   };

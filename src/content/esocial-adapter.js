@@ -2,192 +2,152 @@
  * esocial-adapter.js  (content script)
  * ==================================================================
  *  CAMADA DE MAPEAMENTO DO eSocial
+ *  Tela: "IRRF por trabalhador"
+ *  (Folha de Pagamento > Totalizadores > Trabalhador > IRRF por trabalhador)
+ *  Rota: /portal/Totalizador/TotalizadorImpostoRenda?id=<GUID>
  * ==================================================================
- *  Este e o UNICO arquivo que depende do layout/DOM do eSocial.
- *  Toda a navegacao e a leitura da pagina ficam concentradas aqui,
- *  de modo que, ao receber as capturas de tela reais do fluxo
- *  (requisito 9 do escopo), basta ajustar:
  *
- *    1) os seletores em SEL;
- *    2) se necessario, a sequencia de passos em `coletar()`.
+ *  Estrategia: em vez de preencher campos e clicar (a tela e ASP.NET com
+ *  POST de pagina inteira, o que recarregaria a aba a cada consulta), nos
+ *  REPLICAMOS o POST do formulario via fetch, na mesma sessao/cookies do
+ *  usuario (o content script roda no contexto da pagina, first-party).
  *
- *  O restante da extensao (UI, fila, downloads, recuperacao) NAO
- *  precisa ser alterado.
+ *  Vantagens:
+ *   - a aba do eSocial NUNCA navega (interface permanece ativa);
+ *   - muito mais rapido (sem renderizar pagina a cada CPF/competencia);
+ *   - o content script permanece vivo durante todo o lote.
  *
- *  IMPORTANTE: os seletores abaixo sao um ponto de partida generico
- *  (heuristicas por atributo/texto). Eles devem ser confirmados com
- *  as telas reais do eSocial antes do uso em producao.
+ *  Fluxo por (CPF x competencia):
+ *   1) descobrir o endpoint do formulario (action com o id de sessao);
+ *   2) POST { PeriodoApuracaoPesquisa = MMAAAA, CpfPesquisa = 11 digitos };
+ *   3) ler o nome (#Nome) e o(s) link(s) "Baixar XML" (DownloadEvento);
+ *   4) baixar o XML (GET) e devolver o conteudo ao service worker.
+ *
+ *  Observacoes confirmadas pela inspecao do DOM:
+ *   - Periodo de Apuracao aceito no formato MMAAAA (ex.: 012025).
+ *   - CPF enviado sem mascara (ex.: 14336875936).
+ *   - Link do XML: /portal/Totalizador/TotalizadorImpostoRenda/DownloadEvento
+ *                  ?idEvento=<id>&recibo=
  */
 ;(function () {
   const NS = (self.IRRF = self.IRRF || {});
 
-  /* ---------------------------------------------------------------
-   *  SELETORES  (AJUSTAR CONFORME AS TELAS DO eSocial)
-   * ------------------------------------------------------------- */
+  // Seletores/rotas reais da tela de IRRF por trabalhador.
   const SEL = {
-    // Caminho (pathname) da consulta de IRRF por colaborador.
-    URL_CONSULTA: '/irrf',
-    // Campo de competencia (mes/ano).
-    CAMPO_COMPETENCIA:
-      '#competencia, [name="competencia"], input[placeholder*="ompet" i], input[aria-label*="ompet" i]',
-    // Campo de CPF do colaborador.
-    CAMPO_CPF: '#cpf, [name="cpf"], input[placeholder*="CPF" i], input[aria-label*="CPF" i]',
-    // Botao de consultar/pesquisar.
-    BOTAO_CONSULTAR:
-      'button#consultar, button[type="submit"], button[aria-label*="onsult" i], button[aria-label*="esquis" i]',
-    // Elemento que exibe o nome do colaborador no resultado.
-    NOME_COLABORADOR:
-      '#nomeColaborador, #nomeTrabalhador, .nome-trabalhador, [data-nome], [data-nome-trabalhador]',
-    // Links/botoes que levam ao XML.
-    LINKS_XML:
-      'a[href$=".xml" i], a[download$=".xml" i], a[href*="xml" i], button[aria-label*="XML" i], a[aria-label*="XML" i]',
-    // Indicador de "nenhum registro encontrado".
-    SEM_REGISTRO:
-      '.sem-registro, .no-data, .nenhum-registro, [data-empty], .empty-state',
+    MENU_IRRF: '#menuImpostoRendaTrabalhador', // link no menu (em qualquer pagina do portal)
+    FORM_IRRF: 'form[action*="TotalizadorImpostoRenda"]', // formulario de consulta
+    CAMPO_PERIODO: '#PeriodoApuracaoPesquisa', // name=PeriodoApuracaoPesquisa (MMAAAA)
+    CAMPO_CPF: '#CpfPesquisa', // name=CpfPesquisa (11 digitos)
+    NOME: '#Nome', // nome do trabalhador no resultado
+    LINK_XML: 'a[href*="DownloadEvento"]', // botao "Baixar XML"
+    MENSAGEM: '#mensagemGeral',
   };
 
-  /* ---------------------------------------------------------------
-   *  Helpers genericos de DOM.
-   * ------------------------------------------------------------- */
-  const TIMEOUT = (NS.CONFIG && NS.CONFIG.TIMEOUT_ELEMENTO_MS) || 20000;
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  // Endpoint do POST (action do form, ja com o id de sessao correto).
+  // Fica em cache pois a aba nao navega durante o lote.
+  let endpoint = null;
 
-  const qs = (sel, root = document) => root.querySelector(sel);
-  const qsa = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+  // ---------------------------------------------------------------
+  //  Helpers
+  // ---------------------------------------------------------------
+  async function fetchTexto(url, opts) {
+    const resp = await fetch(url, Object.assign({ credentials: 'include' }, opts || {}));
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    return resp.text();
+  }
 
-  // Aguarda um seletor (string) ou uma funcao que retorna elemento/valor.
-  async function waitFor(selOrFn, timeout = TIMEOUT) {
-    const ini = Date.now();
-    while (Date.now() - ini < timeout) {
-      const el = typeof selOrFn === 'function' ? selOrFn() : qs(selOrFn);
-      if (el) return el;
-      await sleep(200);
+  function parseHtml(html) {
+    return new DOMParser().parseFromString(html, 'text/html');
+  }
+
+  function pareceLogin(doc) {
+    // Sem o formulario de consulta nem o nome => provavelmente login/sessao expirada.
+    return !doc.querySelector(SEL.CAMPO_PERIODO) && !doc.querySelector(SEL.NOME);
+  }
+
+  // Descobre a URL do formulario (com o id de sessao).
+  async function descobrirEndpoint() {
+    // 1) Se ja estamos na tela de IRRF, o form esta na pagina.
+    const fAtual = document.querySelector(SEL.FORM_IRRF);
+    if (fAtual) return new URL(fAtual.getAttribute('action'), location.origin).href;
+
+    // 2) Senao, segue o link do menu (presente em qualquer pagina do portal)
+    //    e le o action do form na resposta.
+    const link = document.querySelector(SEL.MENU_IRRF);
+    if (link && link.getAttribute('href')) {
+      const url = new URL(link.getAttribute('href'), location.origin).href;
+      const doc = parseHtml(await fetchTexto(url));
+      const f2 = doc.querySelector(SEL.FORM_IRRF);
+      if (f2) return new URL(f2.getAttribute('action'), location.origin).href;
     }
-    return null;
+
+    throw new Error(
+      'Tela "IRRF por trabalhador" nao encontrada. Abra o eSocial Web Geral na empresa desejada.'
+    );
   }
 
-  // Encontra o primeiro elemento cujo texto contem `texto`.
-  function porTexto(texto, tags = ['button', 'a', 'span', 'td', 'th', 'label']) {
-    const alvo = String(texto).toLowerCase();
-    for (const tag of tags) {
-      for (const el of qsa(tag)) {
-        if ((el.textContent || '').trim().toLowerCase().includes(alvo)) return el;
-      }
-    }
-    return null;
+  async function obterEndpoint() {
+    if (!endpoint) endpoint = await descobrirEndpoint();
+    return endpoint;
   }
 
-  // Define o valor de um input disparando os eventos que frameworks
-  // (Angular/React) escutam.
-  function setValor(el, valor) {
-    if (!el) return false;
-    const proto = Object.getPrototypeOf(el);
-    const desc = Object.getOwnPropertyDescriptor(proto, 'value');
-    el.focus();
-    if (desc && desc.set) desc.set.call(el, valor);
-    else el.value = valor;
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-    el.dispatchEvent(new Event('change', { bubbles: true }));
-    return true;
+  // Executa a consulta (POST) e devolve o documento resultante.
+  async function pesquisar(cpf, competencia) {
+    const url = await obterEndpoint();
+    const body = new URLSearchParams();
+    body.set('PeriodoApuracaoPesquisa', NS.competencia.paraMMAAAA(competencia));
+    body.set('CpfPesquisa', NS.cpf.normalizar(cpf));
+
+    const html = await fetchTexto(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+      body: body.toString(),
+    });
+    return parseHtml(html);
   }
 
-  function clicar(el) {
-    if (!el) return false;
-    el.click();
-    return true;
-  }
-
-  // Baixa um recurso (mesma sessao/cookies) e devolve o texto.
-  async function fetchTexto(url) {
-    const resp = await fetch(url, { credentials: 'include' });
-    if (!resp.ok) throw new Error('HTTP ' + resp.status + ' ao baixar XML');
-    return await resp.text();
-  }
-
-  function lerNome() {
-    const el = qs(SEL.NOME_COLABORADOR);
-    const t = el && (el.textContent || el.getAttribute('data-nome'));
-    return t ? t.trim().replace(/\s+/g, ' ') : null;
-  }
-
-  /* ---------------------------------------------------------------
-   *  Fluxo principal de coleta de uma combinacao CPF x competencia.
-   *
-   *  Retorna:
-   *   { ok:true,  colaborador, arquivos:[{conteudo, sufixo?}] }
-   *   { ok:true,  semRegistro:true, colaborador }   // nada para baixar
-   *   { ok:false, erro }                            // falha (sera re-tentada)
-   * ------------------------------------------------------------- */
+  // ---------------------------------------------------------------
+  //  Coleta de uma combinacao CPF x competencia.
+  //  Retorna:
+  //    { ok:true, colaborador, arquivos:[{conteudo, sufixo}] }
+  //    { ok:true, semRegistro:true, colaborador }
+  //    { ok:false, erro }
+  // ---------------------------------------------------------------
   async function coletar({ cpf, competencia }) {
     try {
-      // 1) Garantir que estamos na tela de consulta de IRRF.
-      //    Heuristica: a presenca do campo de competencia indica a tela.
-      //    (Se o eSocial exigir navegacao por menus ate a consulta,
-      //     implemente-a aqui usando porTexto()/clicar().)
-      let campoComp = qs(SEL.CAMPO_COMPETENCIA) || (await waitFor(SEL.CAMPO_COMPETENCIA, 4000));
-      if (!campoComp) {
-        return {
-          ok: false,
-          erro:
-            'Tela de consulta de IRRF nao encontrada. Ajuste SEL.URL_CONSULTA/seletores no esocial-adapter.js.',
-        };
+      const doc = await pesquisar(cpf, competencia);
+
+      if (pareceLogin(doc)) {
+        endpoint = null; // forca redescoberta na proxima tentativa
+        return { ok: false, erro: 'Sessao do eSocial expirada ou pagina inesperada.' };
       }
 
-      // 2) Preencher a competencia (formato comum MM/AAAA — ajustar se preciso).
-      setValor(campoComp, NS.competencia.paraMMYYYY(competencia));
+      const nomeEl = doc.querySelector(SEL.NOME);
+      const colaborador = nomeEl ? (nomeEl.getAttribute('value') || '').trim() : null;
 
-      // 3) Preencher o CPF (com mascara — ajustar se o campo exigir sem).
-      const campoCpf = qs(SEL.CAMPO_CPF);
-      if (campoCpf) setValor(campoCpf, NS.cpf.formatar(cpf));
-
-      // 4) Consultar.
-      const botao = qs(SEL.BOTAO_CONSULTAR) || porTexto('consultar') || porTexto('pesquisar');
-      clicar(botao);
-
-      // 5) Aguardar o resultado: links de XML, nome do colaborador, ou
-      //    indicador de "sem registro".
-      await waitFor(
-        () => qs(SEL.LINKS_XML) || qs(SEL.SEM_REGISTRO) || qs(SEL.NOME_COLABORADOR),
-        TIMEOUT
-      );
-
-      const colaborador = lerNome();
-
-      if (qs(SEL.SEM_REGISTRO) && !qs(SEL.LINKS_XML)) {
-        return { ok: true, semRegistro: true, colaborador };
-      }
-
-      // 6) Coletar os XMLs disponiveis.
-      const links = qsa(SEL.LINKS_XML);
+      const links = Array.from(doc.querySelectorAll(SEL.LINK_XML));
       if (!links.length) {
+        // Trabalhador sem IRRF nesta competencia.
         return { ok: true, semRegistro: true, colaborador };
       }
 
       const arquivos = [];
-      let semHref = 0;
-      for (const lk of links) {
-        const href = lk.getAttribute('href') || (lk.dataset && lk.dataset.href);
-        if (href && /xml/i.test(href)) {
-          const url = new URL(href, location.href).toString();
-          const conteudo = await fetchTexto(url);
-          arquivos.push({ conteudo });
-        } else {
-          // Botao que dispara o download via JavaScript (sem href direto).
-          // Exigira tratamento especifico apos o mapeamento das telas.
-          semHref++;
+      for (const a of links) {
+        const xmlUrl = new URL(a.getAttribute('href'), location.origin).href;
+        const conteudo = await fetchTexto(xmlUrl);
+
+        // Guarda contra resposta HTML (ex.: sessao expirou no meio do lote).
+        const ini = conteudo.slice(0, 200).toLowerCase();
+        if (ini.includes('<!doctype html') || ini.includes('<html')) {
+          endpoint = null;
+          return { ok: false, erro: 'Conteudo do XML invalido (sessao expirada?).' };
         }
+
+        const idEvento = new URL(xmlUrl).searchParams.get('idEvento') || '';
+        arquivos.push({ conteudo, sufixo: idEvento });
       }
 
-      if (!arquivos.length) {
-        return {
-          ok: false,
-          erro:
-            semHref > 0
-              ? 'XML disponivel via botao JS (sem href). Ajustar a coleta no esocial-adapter.js.'
-              : 'Nenhum XML fetchavel encontrado.',
-        };
-      }
-      return { ok: true, colaborador, arquivos };
+      return { ok: true, colaborador: colaborador || NS.cpf.normalizar(cpf), arquivos };
     } catch (err) {
       return { ok: false, erro: err && err.message ? err.message : String(err) };
     }
@@ -196,6 +156,6 @@
   NS.adapter = {
     coletar,
     SEL,
-    _helpers: { qs, qsa, waitFor, porTexto, setValor, clicar, fetchTexto, lerNome },
+    _internal: { descobrirEndpoint, obterEndpoint, pesquisar, parseHtml, fetchTexto },
   };
 })();

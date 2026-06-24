@@ -279,7 +279,7 @@
         pastaRaiz: estado.config.pastaRaiz,
         colaborador: resposta.colaborador || tarefa.cpf,
         competencia: tarefa.competencia,
-        sufixo: arquivos.length > 1 ? arq.sufixo || String(i + 1) : arq.sufixo || '',
+        sufixo: arquivos.length > 1 ? arq.sufixo || String(i + 1) : '',
       });
       await NS.downloader.baixar({ conteudo: arq.conteudo, caminho });
       n++;
