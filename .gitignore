@@ -1,0 +1,12 @@
+# SO / editores
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Logs / temporarios
+*.log
+node_modules/
+dist/
+*.zip

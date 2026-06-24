@@ -1,0 +1,260 @@
+/* panel.css — estilo do side panel da extensao IRRF eSocial. */
+:root {
+  --azul: #1351b4;
+  --azul-escuro: #0c326f;
+  --verde: #168821;
+  --vermelho: #e52207;
+  --cinza: #6b7280;
+  --cinza-claro: #e5e7eb;
+  --fundo: #f6f7f9;
+  --texto: #1b1b1b;
+  --raio: 10px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Roboto, system-ui, sans-serif;
+  font-size: 14px;
+  color: var(--texto);
+  background: var(--fundo);
+  padding: 12px;
+}
+
+.cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.cabecalho h1 {
+  font-size: 18px;
+  margin: 0;
+  color: var(--azul-escuro);
+}
+
+.badge {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--cinza-claro);
+  color: var(--cinza);
+  font-weight: 600;
+}
+.badge.executando { background: #dbeafe; color: var(--azul); }
+.badge.pausado { background: #fef3c7; color: #92400e; }
+.badge.concluido { background: #dcfce7; color: var(--verde); }
+.badge.cancelado, .badge.erro { background: #fee2e2; color: var(--vermelho); }
+
+.cartao {
+  background: #fff;
+  border: 1px solid var(--cinza-claro);
+  border-radius: var(--raio);
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.campo {
+  display: block;
+  margin-bottom: 12px;
+}
+.campo > span {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--cinza-claro);
+  border-radius: 8px;
+  font: inherit;
+  background: #fff;
+}
+textarea {
+  resize: vertical;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--azul);
+  outline-offset: 0;
+  border-color: var(--azul);
+}
+
+.linha {
+  display: flex;
+  gap: 10px;
+}
+.linha .campo {
+  flex: 1;
+}
+.linha-aba {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.dica {
+  display: block;
+  color: var(--cinza);
+  font-size: 12px;
+  margin-top: 4px;
+}
+.dica.alerta {
+  color: var(--vermelho);
+}
+
+button {
+  cursor: pointer;
+  font: inherit;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 9px 14px;
+  background: #fff;
+  border-color: var(--cinza-claro);
+  font-weight: 600;
+}
+button:hover:not(:disabled) {
+  background: #f3f4f6;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.primario {
+  width: 100%;
+  background: var(--azul);
+  color: #fff;
+  border-color: var(--azul);
+  padding: 11px;
+  font-size: 15px;
+}
+button.primario:hover:not(:disabled) {
+  background: var(--azul-escuro);
+}
+button.perigo {
+  color: var(--vermelho);
+  border-color: #fca5a5;
+}
+button.perigo:hover:not(:disabled) {
+  background: #fef2f2;
+}
+button.link {
+  background: none;
+  border: none;
+  color: var(--azul);
+  padding: 4px 6px;
+  text-decoration: underline;
+}
+
+.avancado {
+  margin-bottom: 12px;
+}
+.avancado summary {
+  cursor: pointer;
+  color: var(--azul);
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+/* ---- execucao ---- */
+.barra {
+  height: 8px;
+  background: var(--cinza-claro);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+.barra-fill {
+  height: 100%;
+  width: 0;
+  background: var(--azul);
+  transition: width 0.3s ease;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.tile {
+  background: var(--fundo);
+  border-radius: 8px;
+  padding: 8px 4px;
+  text-align: center;
+}
+.tile strong {
+  display: block;
+  font-size: 16px;
+  color: var(--azul-escuro);
+}
+.tile small {
+  color: var(--cinza);
+  font-size: 11px;
+}
+
+.atual {
+  margin: 0 0 14px;
+}
+.atual > div {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  border-bottom: 1px dashed var(--cinza-claro);
+}
+.atual dt {
+  color: var(--cinza);
+  font-size: 13px;
+}
+.atual dd {
+  margin: 0;
+  font-weight: 600;
+  font-size: 13px;
+  text-align: right;
+}
+
+.controles {
+  display: flex;
+  gap: 8px;
+}
+.controles button {
+  flex: 1;
+}
+.reiniciar {
+  margin-top: 10px;
+}
+
+.erros {
+  margin-top: 12px;
+}
+.erros h3 {
+  font-size: 13px;
+  color: var(--vermelho);
+  margin: 8px 0 6px;
+}
+.erro-item {
+  font-size: 12px;
+  color: #7f1d1d;
+  background: #fef2f2;
+  border-radius: 6px;
+  padding: 5px 8px;
+  margin-bottom: 4px;
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+.oculto {
+  display: none !important;
+}

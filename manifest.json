@@ -1,0 +1,53 @@
+{
+  "manifest_version": 3,
+  "name": "IRRF eSocial",
+  "version": "1.0.0",
+  "description": "Automatiza a extracao e o download dos XMLs de IRRF por colaborador diretamente no eSocial.",
+  "minimum_chrome_version": "116",
+  "permissions": [
+    "storage",
+    "downloads",
+    "scripting",
+    "tabs",
+    "alarms",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "*://*.esocial.gov.br/*",
+    "*://*.gov.br/*"
+  ],
+  "background": {
+    "service_worker": "src/background/service-worker.js"
+  },
+  "action": {
+    "default_title": "IRRF eSocial",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "src/sidepanel/panel.html"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.esocial.gov.br/*"],
+      "js": [
+        "src/common/namespace.js",
+        "src/common/constants.js",
+        "src/common/cpf.js",
+        "src/common/competencia.js",
+        "src/content/esocial-adapter.js",
+        "src/content/content-script.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ]
+}

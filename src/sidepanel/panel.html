@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>IRRF eSocial</title>
+    <link rel="stylesheet" href="panel.css" />
+  </head>
+  <body>
+    <header class="cabecalho">
+      <h1>IRRF eSocial</h1>
+      <span id="status" class="badge ocioso">ocioso</span>
+    </header>
+
+    <!-- ====================== Formulario ====================== -->
+    <section id="formulario" class="cartao">
+      <label class="campo">
+        <span>Aba do eSocial</span>
+        <div class="linha-aba">
+          <select id="aba"></select>
+          <button id="recarregarAbas" class="link" title="Atualizar lista de abas">&#8635;</button>
+        </div>
+        <small class="dica">Faca login no eSocial e selecione a empresa antes de iniciar.</small>
+      </label>
+
+      <div class="linha">
+        <label class="campo">
+          <span>Competencia inicial</span>
+          <input type="month" id="compInicial" />
+        </label>
+        <label class="campo">
+          <span>Competencia final</span>
+          <input type="month" id="compFinal" />
+        </label>
+      </div>
+
+      <label class="campo">
+        <span>CPFs (um por linha)</span>
+        <textarea
+          id="cpfs"
+          rows="6"
+          placeholder="123.456.789-00&#10;98765432100"
+        ></textarea>
+        <small id="resumoCpfs" class="dica"></small>
+      </label>
+
+      <details class="avancado">
+        <summary>Opcoes avancadas</summary>
+        <label class="campo">
+          <span>Pasta raiz</span>
+          <input type="text" id="pastaRaiz" value="IRRF eSocial" />
+        </label>
+        <label class="campo">
+          <span>Ordem de varredura</span>
+          <select id="ordem">
+            <option value="cpf">Por colaborador (CPF externo)</option>
+            <option value="competencia">Por competencia (externo)</option>
+          </select>
+        </label>
+      </details>
+
+      <button id="iniciar" class="primario">Iniciar</button>
+    </section>
+
+    <!-- ====================== Execucao ====================== -->
+    <section id="execucao" class="cartao oculto">
+      <div class="barra"><div id="barraProgresso" class="barra-fill"></div></div>
+
+      <div class="tiles">
+        <div class="tile"><strong id="tTotalCpfs">0</strong><small>CPFs</small></div>
+        <div class="tile"><strong id="tProgresso">0/0</strong><small>tarefas</small></div>
+        <div class="tile"><strong id="tXmls">0</strong><small>XMLs</small></div>
+        <div class="tile"><strong id="tEta">&mdash;</strong><small>restante</small></div>
+      </div>
+
+      <dl class="atual">
+        <div><dt>Competencia atual</dt><dd id="aCompetencia">&mdash;</dd></div>
+        <div><dt>CPF atual</dt><dd id="aCpf">&mdash;</dd></div>
+        <div><dt>Colaborador</dt><dd id="aColaborador">&mdash;</dd></div>
+      </dl>
+
+      <div class="controles">
+        <button id="pausar">Pausar</button>
+        <button id="retomar">Retomar</button>
+        <button id="cancelar" class="perigo">Cancelar</button>
+      </div>
+      <button id="reiniciar" class="link reiniciar oculto">Nova execucao</button>
+
+      <div id="erros" class="erros"></div>
+    </section>
+
+    <script src="../common/namespace.js"></script>
+    <script src="../common/constants.js"></script>
+    <script src="../common/cpf.js"></script>
+    <script src="../common/competencia.js"></script>
+    <script src="panel.js"></script>
+  </body>
+</html>
