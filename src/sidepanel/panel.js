@@ -5,21 +5,24 @@
  * Toda a execucao roda no background, entao a janela pode ser fechada,
  * o usuario pode trocar de aba/navegar, e ao reabrir o painel o estado
  * atual e exibido novamente (requisitos 6, 7 e 8).
+ *
+ * A aba do eSocial e detectada automaticamente (sem selecao manual).
  */
 (function () {
   const NS = self.IRRF;
   const $ = (id) => document.getElementById(id);
 
+  // Configuracoes fixas (antes editaveis em "Opcoes avancadas").
+  const PASTA_RAIZ = 'IRRF eSocial';
+  const ORDEM = 'cpf';
+
   const el = {
     status: $('status'),
-    aba: $('aba'),
-    recarregarAbas: $('recarregarAbas'),
+    esocial: $('esocial'),
     compInicial: $('compInicial'),
     compFinal: $('compFinal'),
     cpfs: $('cpfs'),
     resumoCpfs: $('resumoCpfs'),
-    pastaRaiz: $('pastaRaiz'),
-    ordem: $('ordem'),
     iniciar: $('iniciar'),
     formulario: $('formulario'),
     execucao: $('execucao'),
@@ -38,6 +41,9 @@
     erros: $('erros'),
   };
 
+  // Aba do eSocial detectada automaticamente.
+  let abaEsocial = null;
+
   // Envia mensagem ao service worker e devolve a resposta.
   function enviar(tipo, extra) {
     return new Promise((resolve) => {
@@ -48,38 +54,50 @@
     });
   }
 
-  // ---- abas do eSocial ----
-  async function carregarAbas() {
-    const selecionadaAntes = el.aba.value;
-    const abas = await chrome.tabs.query({});
+  // ---- deteccao automatica da aba do eSocial ----
+  async function detectarEsocial() {
+    let abas = [];
+    try {
+      abas = await chrome.tabs.query({});
+    } catch (_) {
+      abas = [];
+    }
     const esocial = abas.filter((a) => a.url && /esocial\.gov\.br/i.test(a.url));
-    el.aba.innerHTML = '';
+    // Prefere a aba do portal Web Geral; depois a ativa; depois a primeira.
+    const escolhida =
+      esocial.find((a) => /\/portal\//i.test(a.url) && a.active) ||
+      esocial.find((a) => /\/portal\//i.test(a.url)) ||
+      esocial.find((a) => a.active) ||
+      esocial[0];
 
-    if (!esocial.length) {
-      const opt = document.createElement('option');
-      opt.value = '';
-      opt.textContent = 'Nenhuma aba do eSocial encontrada';
-      el.aba.appendChild(opt);
-      return;
+    abaEsocial = escolhida ? { id: escolhida.id, title: escolhida.title || escolhida.url } : null;
+    renderEsocial();
+  }
+
+  function renderEsocial() {
+    if (abaEsocial) {
+      el.esocial.className = 'esocial-status ok';
+      el.esocial.textContent = '✓ eSocial detectado';
+    } else {
+      el.esocial.className = 'esocial-status off';
+      el.esocial.textContent = '○ eSocial não encontrado — abra o portal e faça login na empresa';
     }
-    for (const a of esocial) {
-      const opt = document.createElement('option');
-      opt.value = String(a.id);
-      opt.textContent = (a.title || a.url).slice(0, 70);
-      if (String(a.id) === selecionadaAntes || (!selecionadaAntes && a.active)) {
-        opt.selected = true;
-      }
-      el.aba.appendChild(opt);
-    }
+  }
+
+  // ---- formatacao MM/AAAA enquanto digita ----
+  function formatarCompetencia(e) {
+    let d = e.target.value.replace(/\D/g, '').slice(0, 6); // MMAAAA
+    if (d.length >= 3) d = d.slice(0, 2) + '/' + d.slice(2);
+    e.target.value = d;
   }
 
   // ---- resumo dos CPFs ----
   function atualizarResumoCpfs() {
     const { validos, invalidos } = NS.cpf.parseLista(el.cpfs.value);
-    let txt = `${validos.length} CPF(s) valido(s)`;
+    let txt = `${validos.length} CPF(s) válido(s)`;
     if (invalidos.length) {
       const amostra = invalidos.slice(0, 3).join(', ');
-      txt += ` · ${invalidos.length} invalido(s): ${amostra}${invalidos.length > 3 ? '…' : ''}`;
+      txt += ` · ${invalidos.length} inválido(s): ${amostra}${invalidos.length > 3 ? '…' : ''}`;
     }
     el.resumoCpfs.textContent = txt;
     el.resumoCpfs.classList.toggle('alerta', invalidos.length > 0);
@@ -87,33 +105,35 @@
 
   // ---- iniciar ----
   async function iniciar() {
+    await detectarEsocial(); // garante o id atual da aba
     const { validos, invalidos } = NS.cpf.parseLista(el.cpfs.value);
-    if (!el.aba.value) {
-      alert('Selecione a aba do eSocial (faca login e entre na empresa desejada).');
+
+    if (!abaEsocial) {
+      alert('Abra o eSocial Web Geral (logado na empresa desejada) em uma aba e tente novamente.');
       return;
     }
-    if (!el.compInicial.value || !el.compFinal.value) {
-      alert('Informe as competencias inicial e final.');
+    if (!NS.competencia.valida(el.compInicial.value) || !NS.competencia.valida(el.compFinal.value)) {
+      alert('Informe as competências inicial e final no formato MM/AAAA.');
       return;
     }
     if (!validos.length) {
-      alert('Informe ao menos um CPF valido.');
+      alert('Informe ao menos um CPF válido.');
       return;
     }
     if (
       invalidos.length &&
-      !confirm(`${invalidos.length} CPF(s) invalido(s) serao ignorados. Continuar?`)
+      !confirm(`${invalidos.length} CPF(s) inválido(s) serão ignorados. Continuar?`)
     ) {
       return;
     }
 
     const payload = {
-      abaId: Number(el.aba.value),
+      abaId: abaEsocial.id,
       compInicial: el.compInicial.value,
       compFinal: el.compFinal.value,
       cpfs: validos,
-      pastaRaiz: el.pastaRaiz.value.trim() || 'IRRF eSocial',
-      ordem: el.ordem.value,
+      pastaRaiz: PASTA_RAIZ,
+      ordem: ORDEM,
     };
     const estado = await enviar(NS.MSG.INICIAR, { payload });
     if (estado && estado.erro) alert('Erro ao iniciar: ' + estado.erro);
@@ -152,8 +172,7 @@
       st === NS.STATUS.PAUSADO ||
       st === NS.STATUS.ERRO
     );
-    const finalizado =
-      st === NS.STATUS.CONCLUIDO || st === NS.STATUS.CANCELADO;
+    const finalizado = st === NS.STATUS.CONCLUIDO || st === NS.STATUS.CANCELADO;
     el.reiniciar.classList.toggle('oculto', !finalizado);
 
     if (!temExecucao) return;
@@ -177,7 +196,9 @@
     }
 
     const atual = estado.atual || {};
-    el.aCompetencia.textContent = atual.competencia || '—';
+    el.aCompetencia.textContent = atual.competencia
+      ? NS.competencia.paraMMYYYY(atual.competencia)
+      : '—';
     el.aCpf.textContent = atual.cpf ? NS.cpf.formatar(atual.cpf) : '—';
     el.aColaborador.textContent = atual.colaborador || '—';
 
@@ -188,9 +209,9 @@
         .slice(0, 20)
         .map(
           (t) =>
-            `<div class="erro-item">${NS.cpf.formatar(t.cpf)} · ${t.competencia}: ${
-              t.erro || ''
-            }</div>`
+            `<div class="erro-item">${NS.cpf.formatar(t.cpf)} · ${NS.competencia.paraMMYYYY(
+              t.competencia
+            )}: ${t.erro || ''}</div>`
         )
         .join('');
       el.erros.innerHTML = `<h3>Falhas (${erros.length})</h3>${itens}`;
@@ -203,22 +224,21 @@
   function preencherFormulario(estado) {
     if (!estado || !estado.config) return;
     const c = estado.config;
-    if (c.compInicial) el.compInicial.value = c.compInicial;
-    if (c.compFinal) el.compFinal.value = c.compFinal;
+    if (c.compInicial) el.compInicial.value = NS.competencia.paraMMYYYY(c.compInicial);
+    if (c.compFinal) el.compFinal.value = NS.competencia.paraMMYYYY(c.compFinal);
     if (c.cpfs && c.cpfs.length) el.cpfs.value = c.cpfs.map(NS.cpf.formatar).join('\n');
-    if (c.pastaRaiz) el.pastaRaiz.value = c.pastaRaiz;
-    if (c.ordem) el.ordem.value = c.ordem;
     atualizarResumoCpfs();
   }
 
   // ---- eventos ----
   el.cpfs.addEventListener('input', atualizarResumoCpfs);
-  el.recarregarAbas.addEventListener('click', carregarAbas);
+  el.compInicial.addEventListener('input', formatarCompetencia);
+  el.compFinal.addEventListener('input', formatarCompetencia);
   el.iniciar.addEventListener('click', iniciar);
   el.pausar.addEventListener('click', async () => render(await enviar(NS.MSG.PAUSAR)));
   el.retomar.addEventListener('click', async () => render(await enviar(NS.MSG.RETOMAR)));
   el.cancelar.addEventListener('click', async () => {
-    if (confirm('Cancelar a execucao atual?')) render(await enviar(NS.MSG.CANCELAR));
+    if (confirm('Cancelar a execução atual?')) render(await enviar(NS.MSG.CANCELAR));
   });
   el.reiniciar.addEventListener('click', async () => {
     const novo = await enviar(NS.MSG.REINICIAR);
@@ -230,9 +250,13 @@
     if (msg && msg.tipo === NS.MSG.ESTADO_ATUALIZADO) render(msg.estado);
   });
 
+  // Re-detecta o eSocial ao focar o painel e periodicamente.
+  window.addEventListener('focus', detectarEsocial);
+  setInterval(detectarEsocial, 5000);
+
   // ---- init ----
   (async () => {
-    await carregarAbas();
+    await detectarEsocial();
     atualizarResumoCpfs();
     const estado = await enviar(NS.MSG.OBTER_ESTADO);
     preencherFormulario(estado);

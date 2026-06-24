@@ -17,7 +17,7 @@
 
 body {
   margin: 0;
-  font-family: "Segoe UI", Roboto, system-ui, sans-serif;
+  font-family: "Poppins", "Segoe UI", Roboto, system-ui, sans-serif;
   font-size: 14px;
   color: var(--texto);
   background: var(--fundo);
@@ -82,7 +82,6 @@ textarea {
 }
 textarea {
   resize: vertical;
-  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
 }
 input:focus,
 select:focus,
@@ -113,6 +112,23 @@ textarea:focus {
 }
 .dica.alerta {
   color: var(--vermelho);
+}
+
+/* indicador de deteccao automatica do eSocial */
+.esocial-status {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px 10px;
+  border-radius: 8px;
+  margin-bottom: 14px;
+}
+.esocial-status.ok {
+  background: #dcfce7;
+  color: var(--verde);
+}
+.esocial-status.off {
+  background: #fef3c7;
+  color: #92400e;
 }
 
 button {
@@ -252,7 +268,6 @@ button.link {
   border-radius: 6px;
   padding: 5px 8px;
   margin-bottom: 4px;
-  font-family: ui-monospace, Consolas, monospace;
 }
 
 .oculto {

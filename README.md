@@ -38,17 +38,15 @@ individuais por colaborador.
 1. Faça **login no eSocial Web Geral** (`https://www.esocial.gov.br/portal/`) e
    entre na **empresa** desejada, deixando a aba aberta. Não é preciso abrir
    manualmente a tela de IRRF — a extensão a localiza pelo menu.
-2. Clique no ícone da extensão para abrir o painel lateral.
-3. Em **Aba do eSocial**, selecione a aba onde o eSocial está aberto
-   (use ↻ para atualizar a lista).
-4. Informe a **competência inicial** e a **competência final**
-   (pode ser a mesma para baixar apenas um mês).
-5. Cole a **lista de CPFs** — um por linha, com ou sem máscara
+2. Clique no ícone da extensão para abrir o painel lateral. A aba do eSocial é
+   **detectada automaticamente** — o indicador no topo mostra
+   "✓ eSocial detectado".
+3. Informe a **competência inicial** e a **competência final** no formato
+   **MM/AAAA** (pode ser a mesma para baixar apenas um mês).
+4. Cole a **lista de CPFs** — um por linha, com ou sem máscara
    (`123.456.789-00` ou `12345678900`). CPFs inválidos/duplicados são
    sinalizados e descartados.
-6. (Opcional) Em **Opções avançadas**, ajuste a pasta raiz e a ordem de
-   varredura.
-7. Clique em **Iniciar**.
+5. Clique em **Iniciar**.
 
 Durante a execução o painel mostra progresso, competência/CPF atuais, total de
 XMLs baixados, tempo restante estimado e botões **Pausar / Retomar / Cancelar**.
@@ -83,6 +81,7 @@ build/bundler.
 ```
 manifest.json
 icons/                         ícones 16/48/128
+fonts/                         fonte Poppins (woff2) empacotada localmente
 src/
 ├── common/                    código compartilhado por todos os contextos
 │   ├── namespace.js           cria o namespace global
@@ -142,7 +141,7 @@ interface estável.
 
 | # | Requisito | Onde |
 |---|-----------|------|
-| 1 | Seleção do período (uma ou várias competências) | `panel.html` (`<input type="month">`), `competencia.js` (`gerarIntervalo`) |
+| 1 | Seleção do período (uma ou várias competências) | `panel.html` (campos `MM/AAAA`), `competencia.js` (`gerarIntervalo`) |
 | 2 | Lista de CPFs (um por linha, com/sem máscara) | `panel.js`, `cpf.js` (`parseLista`, validação, dedup) |
 | 3 | Download dos XMLs por CPF × competência | `orchestrator.js`, `esocial-adapter.js`, `downloader.js` |
 | 4 | Estrutura de pastas por colaborador | `downloader.js` (`montarCaminho`) |
