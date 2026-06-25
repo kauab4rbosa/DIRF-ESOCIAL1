@@ -13,31 +13,41 @@
 ;(function () {
   const NS = (self.IRRF = self.IRRF || {});
 
-  // Rasteriza um elemento para um <canvas> na escala desejada.
+  const A4 = { w: 595.28, h: 841.89 }; // pt (retrato)
+
+  // Rasteriza o elemento para um <canvas> usando html2canvas (le os estilos
+  // computados -> preserva cores, fontes, fundos e diagramacao). Recorre ao
+  // metodo SVG/foreignObject apenas se html2canvas nao estiver disponivel.
   async function elementoParaCanvas(el, escala) {
     escala = escala || 2;
+    if (typeof self.html2canvas === 'function') {
+      return self.html2canvas(el, {
+        scale: escala,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false,
+        windowWidth: el.scrollWidth,
+        windowHeight: el.scrollHeight,
+      });
+    }
+    return elementoParaCanvasSvg(el, escala);
+  }
+
+  async function elementoParaCanvasSvg(el, escala) {
     const largura = el.offsetWidth;
     const altura = el.offsetHeight;
-
     const clone = el.cloneNode(true);
     clone.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
     const xhtml = new XMLSerializer().serializeToString(clone);
-
     const svg =
       `<svg xmlns="http://www.w3.org/2000/svg" width="${largura}" height="${altura}">` +
-      `<foreignObject x="0" y="0" width="100%" height="100%">${xhtml}</foreignObject>` +
-      `</svg>`;
-
-    const url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+      `<foreignObject x="0" y="0" width="100%" height="100%">${xhtml}</foreignObject></svg>`;
     const img = new Image();
-    img.width = largura;
-    img.height = altura;
     await new Promise((resolve, reject) => {
       img.onload = resolve;
       img.onerror = () => reject(new Error('Falha ao rasterizar o informe.'));
-      img.src = url;
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
     });
-
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(largura * escala);
     canvas.height = Math.round(altura * escala);
@@ -57,7 +67,29 @@
     return out;
   }
 
-  // Rasteriza e devolve { jpeg:Uint8Array, w, h }.
+  // Rasteriza e FATIA o informe em paginas A4 retrato (corrige o "corte":
+  // captura tudo e quebra em paginas do tamanho A4). Retorna [{jpeg,w,h}].
+  async function elementoParaPaginas(el, escala, qualidade) {
+    const full = await elementoParaCanvas(el, escala || 2);
+    const W = full.width;
+    const fatiaH = Math.round((W * A4.h) / A4.w); // altura de 1 pagina A4 nesta largura
+    const paginas = [];
+    for (let y = 0; y < full.height; y += fatiaH) {
+      const h = Math.min(fatiaH, full.height - y);
+      const c = document.createElement('canvas');
+      c.width = W;
+      c.height = fatiaH; // pagina A4 cheia (padding branco no rodape da ultima)
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, W, fatiaH);
+      ctx.drawImage(full, 0, y, W, h, 0, 0, W, h);
+      const jpeg = dataUrlParaBytes(c.toDataURL('image/jpeg', qualidade || 0.95));
+      paginas.push({ jpeg, w: W, h: fatiaH });
+    }
+    return paginas;
+  }
+
+  // compat: 1 imagem (sem paginar).
   async function elementoParaJpeg(el, escala, qualidade) {
     const canvas = await elementoParaCanvas(el, escala || 2);
     const jpeg = dataUrlParaBytes(canvas.toDataURL('image/jpeg', qualidade || 0.95));
@@ -165,6 +197,7 @@
   NS.informeExport = {
     elementoParaCanvas,
     elementoParaJpeg,
+    elementoParaPaginas,
     dataUrlParaBytes,
     montarPdf,
     jpegParaPdf,

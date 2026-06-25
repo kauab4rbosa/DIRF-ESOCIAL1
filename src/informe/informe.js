@@ -201,14 +201,14 @@
   }
 
   // ---------------- exportação ----------------
-  async function paginaDe(model) {
+  async function paginasDe(model) {
     const host = $('offscreen');
     host.innerHTML = NS.informeLayout.buildHtml(model);
     const el = host.querySelector('.inf');
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-    const pg = await NS.informeExport.elementoParaJpeg(el, 2);
+    const paginas = await NS.informeExport.elementoParaPaginas(el, 2);
     host.innerHTML = '';
-    return pg;
+    return paginas;
   }
 
   function aviso(txt) {
@@ -221,8 +221,7 @@
     try {
       // um único colaborador -> um PDF
       if (modelos.length === 1) {
-        const pg = await paginaDe(modelos[0]);
-        NS.informeExport.baixarPdf([pg], nomeArquivo(modelos[0]));
+        NS.informeExport.baixarPdf(await paginasDe(modelos[0]), nomeArquivo(modelos[0]));
         return;
       }
 
@@ -232,19 +231,18 @@
         const arquivos = [];
         for (let i = 0; i < modelos.length; i++) {
           aviso(`Gerando ${i + 1}/${modelos.length}…`);
-          const pg = await paginaDe(modelos[i]);
-          const pdf = NS.informeExport.montarPdf([pg]);
+          const pdf = NS.informeExport.montarPdf(await paginasDe(modelos[i]));
           arquivos.push({ nome: NS.informeExport.sanitizarNome(nomeArquivo(modelos[i])) + '.pdf', dados: pdf });
           await sleep(15);
         }
         const zip = NS.zip.criarZip(arquivos);
         NS.informeExport.baixarBlob(new Blob([zip], { type: 'application/zip' }), `Informes ${anosLabel()}.zip`);
       } else {
-        // tudo junto num único PDF (uma página por colaborador)
-        const paginas = [];
+        // tudo junto num único PDF (uma ou mais páginas por colaborador)
+        let paginas = [];
         for (let i = 0; i < modelos.length; i++) {
           aviso(`Gerando ${i + 1}/${modelos.length}…`);
-          paginas.push(await paginaDe(modelos[i]));
+          paginas = paginas.concat(await paginasDe(modelos[i]));
           await sleep(15);
         }
         NS.informeExport.baixarPdf(paginas, `Informes ${anosLabel()}`);

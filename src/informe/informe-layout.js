@@ -105,7 +105,7 @@
     return h;
   }
 
-  // ---- Secao 7.3: pensao alimenticia ----
+  // ---- Secao 7.3: pensao alimenticia (mensal + 13o em linha separada) ----
   function secaoPensoes(model) {
     const cpfs = Object.keys(model.pensoes || {});
     let linhas = '';
@@ -120,7 +120,23 @@
     } else {
       linhas = `<tr><td class="lbl">&nbsp;</td>${MESES.map(() => '<td>0,00</td>').join('')}<td class="tot">0,00</td></tr>`;
     }
-    return `<table class="grade">${cabMeses('Dependente (Nome / CPF)')}${linhas}</table>`;
+    let h = `<table class="grade">${cabMeses('Dependente (Nome / CPF)')}${linhas}</table>`;
+
+    // Pensao alimenticia 13o (separada, para o totalizador mensal bater)
+    const cpfs13 = Object.keys(model.pensoes13 || {}).filter((c) => (model.pensoes13[c].total || 0) > 0);
+    if (cpfs13.length) {
+      const linhas13 = cpfs13
+        .map((cpf) => {
+          const p = model.pensoes13[cpf];
+          const ident = `${esc(p.nome || '(nome não informado)')} &middot; ${fmt().cpf(cpf)}`;
+          return `<tr><td class="lbl">${ident}</td><td class="tot" colspan="13">${money(p.total)}</td></tr>`;
+        })
+        .join('');
+      h +=
+        `<div class="sub" style="margin-top:8px;">Pensão alimentícia 13º</div>` +
+        `<table class="grade">${linhas13}</table>`;
+    }
+    return h;
   }
 
   // ------------------------------------------------------------------
@@ -143,7 +159,8 @@
       linha('5. Lucro e dividendo apurado a partir de 1996', zeros, { strike: true }) +
       linha('6. Valores pagos ao titular/sócio de ME/EPP', zeros) +
       linhaTabela(model, (x) => x.isen.indeniz, '7. Indenizações por rescisão de contrato/PDV') +
-      linhaTabela(model, (x) => x.isen.juros, '8. Juros de mora') +
+      linhaTabela(model, (x) => x.isen.abonoPec, '8. Abono pecuniário (de férias)') +
+      linhaTabela(model, (x) => x.isen.juros, '9. Juros de mora') +
       linhaTabela(model, (x) => x.isen.outros, '9.1 Outros Rendimentos');
 
     const sec5 =

@@ -129,7 +129,7 @@
     const v = {
       rendTrib: 0, prevOficial: 0, irrf: 0,
       rendTrib13: 0, prevOficial13: 0, irrf13: 0,
-      p65: 0, p65_13: 0, diarias: 0, moleGrave: 0, indeniz: 0, juros: 0, outros: 0,
+      p65: 0, p65_13: 0, diarias: 0, moleGrave: 0, indeniz: 0, abonoPec: 0, juros: 0, outros: 0,
     };
     for (const c of consolids) {
       const cr = txt(c, 'CRMen');
@@ -145,6 +145,7 @@
       v.diarias += nmero(c, 'vlrDiarias') + nmero(c, 'vlrAjudaCusto');
       v.moleGrave += nmero(c, 'vlrRendMoleGrave') + nmero(c, 'vlrRendMoleGrave13');
       v.indeniz += nmero(c, 'vlrIndResContrato');
+      v.abonoPec += nmero(c, 'vlrAbonoPec');
       v.juros += nmero(c, 'vlrJurosMora');
       v.outros +=
         nmero(c, 'vlrIsenOutros') +
@@ -164,17 +165,23 @@
       depIRRF: txt(d, 'depIRRF'),
     }));
 
-    // pensao alimenticia (todos os tpRend), separando 13o (tpRend=12)
+    // pensao alimenticia: mensal (tpRend != 12) separada do 13o (tpRend = 12),
+    // para que o detalhamento (7.3) bata com o totalizador mensal (3.4).
     let pensaoMensal = 0;
     let pensao13 = 0;
-    const pensaoPorCpf = {}; // cpf -> valor total no mes (todos tpRend)
+    const pensaoPorCpf = {}; // mensal, por beneficiario
+    const pensao13PorCpf = {}; // 13o, por beneficiario
     for (const p of acharTodos(complem, 'penAlim')) {
       const tpRend = txt(p, 'tpRend');
       const cpfDep = txt(p, 'cpfDep');
       const val = nmero(p, 'vlrDedPenAlim');
-      if (tpRend === '12') pensao13 += val;
-      else pensaoMensal += val;
-      pensaoPorCpf[cpfDep] = (pensaoPorCpf[cpfDep] || 0) + val;
+      if (tpRend === '12') {
+        pensao13 += val;
+        pensao13PorCpf[cpfDep] = (pensao13PorCpf[cpfDep] || 0) + val;
+      } else {
+        pensaoMensal += val;
+        pensaoPorCpf[cpfDep] = (pensaoPorCpf[cpfDep] || 0) + val;
+      }
     }
 
     // previdencia complementar (mensal)
@@ -192,7 +199,8 @@
       })),
     }));
 
-    const base13 = v.rendTrib13 - v.prevOficial13 - pensao13;
+    // 13o liquido (como no sistema de folha): bruto - INSS - pensao - IRRF.
+    const base13 = v.rendTrib13 - v.prevOficial13 - pensao13 - v.irrf13;
 
     return {
       cpf,
@@ -213,6 +221,7 @@
           diarias: v.diarias,
           moleGrave: v.moleGrave,
           indeniz: v.indeniz,
+          abonoPec: v.abonoPec,
           juros: v.juros,
           outros: v.outros,
         },
@@ -221,6 +230,7 @@
       },
       deps,
       pensaoPorCpf,
+      pensao13PorCpf,
       planos,
     };
   }
@@ -232,7 +242,7 @@
   function mesVazio() {
     return {
       rendTrib: 0, prevOficial: 0, prevCompl: 0, pensao: 0, irrf: 0,
-      isen: { p65: 0, p65_13: 0, diarias: 0, moleGrave: 0, indeniz: 0, juros: 0, outros: 0 },
+      isen: { p65: 0, p65_13: 0, diarias: 0, moleGrave: 0, indeniz: 0, abonoPec: 0, juros: 0, outros: 0 },
       base13: 0, irrf13: 0,
     };
   }
@@ -254,7 +264,8 @@
           natureza: r.natureza,
           meses: {},
           nomesDep: {}, // cpf -> nome
-          pensoes: {}, // cpf -> { meses:{}, total }
+          pensoes: {}, // cpf -> { meses:{}, total }  (mensal)
+          pensoes13: {}, // cpf -> { total }  (13o)
           planos: {}, // cnpjOper -> { regANS, titMeses:{}, deps:{cpf:{meses:{}}} }
         };
         for (let i = 1; i <= 12; i++) mdl.meses[i] = mesVazio();
@@ -275,12 +286,17 @@
       mes.irrf13 += mm.irrf13;
       for (const k of Object.keys(mes.isen)) mes.isen[k] += mm.isen[k];
 
-      // pensoes (secao 7.3)
+      // pensoes mensais (secao 7.3) — sem o 13o, p/ bater com o totalizador
       for (const cpfDep of Object.keys(r.pensaoPorCpf)) {
         if (!mdl.pensoes[cpfDep]) mdl.pensoes[cpfDep] = { meses: {}, total: 0 };
         const pen = mdl.pensoes[cpfDep];
         pen.meses[r.mes] = (pen.meses[r.mes] || 0) + r.pensaoPorCpf[cpfDep];
         pen.total += r.pensaoPorCpf[cpfDep];
+      }
+      // pensao alimenticia 13o (linha separada)
+      for (const cpfDep of Object.keys(r.pensao13PorCpf || {})) {
+        if (!mdl.pensoes13[cpfDep]) mdl.pensoes13[cpfDep] = { total: 0 };
+        mdl.pensoes13[cpfDep].total += r.pensao13PorCpf[cpfDep];
       }
 
       // planos (secao 7.1)
@@ -303,6 +319,9 @@
     for (const mdl of modelos) {
       for (const cpfDep of Object.keys(mdl.pensoes)) {
         mdl.pensoes[cpfDep].nome = mdl.nomesDep[cpfDep] || '';
+      }
+      for (const cpfDep of Object.keys(mdl.pensoes13)) {
+        mdl.pensoes13[cpfDep].nome = mdl.nomesDep[cpfDep] || '';
       }
       for (const cnpj of Object.keys(mdl.planos)) {
         const pl = mdl.planos[cnpj];
