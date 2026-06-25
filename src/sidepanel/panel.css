@@ -270,6 +270,16 @@ button.link {
   margin-bottom: 4px;
 }
 
+.titulo-sec {
+  font-size: 15px;
+  margin: 0 0 6px;
+  color: var(--azul-escuro);
+}
+input[type="file"] {
+  padding: 7px;
+  font-size: 12px;
+}
+
 .oculto {
   display: none !important;
 }

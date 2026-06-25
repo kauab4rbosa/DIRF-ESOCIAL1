@@ -250,6 +250,86 @@
     if (msg && msg.tipo === NS.MSG.ESTADO_ATUALIZADO) render(msg.estado);
   });
 
+  // ================= Gerador de Informe de Rendimentos =================
+  const elGer = {
+    pasta: $('pastaInforme'),
+    resumo: $('resumoInforme'),
+    gerar: $('gerarInforme'),
+  };
+
+  // Extrai o nome do colaborador a partir da pasta-pai do arquivo
+  // (estrutura "IRRF eSocial/<NOME>/AAAA-MM.xml").
+  function nomeDaPasta(path) {
+    const p = String(path || '').split('/').filter(Boolean);
+    if (p.length >= 2) {
+      const pai = p[p.length - 2];
+      if (!/^(irrf esocial|informes esocial|informes|xml|xmls|downloads)$/i.test(pai)) return pai;
+    }
+    return '';
+  }
+
+  function arquivosXml() {
+    return Array.from(elGer.pasta.files || []).filter((f) => /\.xml$/i.test(f.name));
+  }
+
+  function atualizarResumoInforme() {
+    const n = arquivosXml().length;
+    elGer.resumo.textContent = n ? `${n} XML(s) selecionado(s).` : 'Nenhum XML na seleção.';
+  }
+
+  async function gerarInformes() {
+    const arqs = arquivosXml();
+    if (!arqs.length) {
+      alert('Selecione uma pasta contendo arquivos XML do eSocial.');
+      return;
+    }
+    elGer.gerar.disabled = true;
+    elGer.resumo.textContent = 'Lendo arquivos…';
+
+    const registros = [];
+    const nomePorCpf = {};
+    let ignorados = 0;
+    for (const f of arqs) {
+      try {
+        const txt = await f.text();
+        const r = NS.informe.parseXml(txt);
+        if (r) {
+          registros.push(r);
+          const nm = nomeDaPasta(f.webkitRelativePath || f.name);
+          if (nm && !nomePorCpf[r.cpf]) nomePorCpf[r.cpf] = nm;
+        } else {
+          ignorados++;
+        }
+      } catch (_) {
+        ignorados++;
+      }
+    }
+
+    if (!registros.length) {
+      alert('Nenhum evento S-5002 (evtIrrfBenef) válido foi encontrado nos XMLs.');
+      elGer.gerar.disabled = false;
+      atualizarResumoInforme();
+      return;
+    }
+
+    const modelos = NS.informe.construirModelos(registros, nomePorCpf);
+    await chrome.storage.local.set({
+      irrf_informe_modelos: { modelos, fonte: { razao: '', cnpj: '' }, geradoEm: Date.now() },
+    });
+
+    elGer.resumo.textContent =
+      `${modelos.length} informe(s) a partir de ${registros.length} XML(s)` +
+      (ignorados ? ` · ${ignorados} ignorado(s).` : '.');
+    elGer.gerar.disabled = false;
+
+    chrome.tabs.create({ url: chrome.runtime.getURL('src/informe/informe.html') });
+  }
+
+  if (elGer.pasta) {
+    elGer.pasta.addEventListener('change', atualizarResumoInforme);
+    elGer.gerar.addEventListener('click', gerarInformes);
+  }
+
   // Re-detecta o eSocial ao focar o painel e periodicamente.
   window.addEventListener('focus', detectarEsocial);
   setInterval(detectarEsocial, 5000);

@@ -13,7 +13,8 @@ importScripts(
   '/src/common/competencia.js',
   '/src/common/storage.js',
   '/src/background/downloader.js',
-  '/src/background/orchestrator.js'
+  '/src/background/orchestrator.js',
+  '/src/background/keepalive.js'
 );
 
 const NS = self.IRRF;
@@ -26,12 +27,19 @@ function configurarSidePanel() {
       .catch(() => {});
   }
 }
-chrome.runtime.onInstalled.addListener(configurarSidePanel);
-chrome.runtime.onStartup.addListener(() => NS.orchestrator.recuperar());
+chrome.runtime.onInstalled.addListener(() => {
+  configurarSidePanel();
+  NS.keepalive.garantirAlarme();
+});
+chrome.runtime.onStartup.addListener(() => {
+  NS.orchestrator.recuperar();
+  NS.keepalive.garantirAlarme();
+});
 configurarSidePanel();
 
-// Recuperacao ao (re)iniciar o service worker.
+// Recuperacao + keepalive de sessao ao (re)iniciar o service worker.
 NS.orchestrator.recuperar();
+NS.keepalive.garantirAlarme();
 
 // Mensagens vindas da UI.
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
@@ -76,5 +84,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === NS.CONFIG.ALARM_KEEPALIVE) {
     NS.orchestrator.recuperar();
+  } else if (alarm.name === NS.CONFIG.ALARM_SESSAO) {
+    NS.keepalive.manterSessao();
   }
 });

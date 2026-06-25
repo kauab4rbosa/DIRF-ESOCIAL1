@@ -92,10 +92,16 @@ src/
 ├── background/                service worker (orquestração)
 │   ├── service-worker.js      ponto de entrada; roteia mensagens
 │   ├── orchestrator.js        máquina de estados / fila / recuperação
-│   └── downloader.js          grava os XMLs com a estrutura de pastas
+│   ├── downloader.js          grava os XMLs com a estrutura de pastas
+│   └── keepalive.js           mantém a sessão do eSocial viva (15 min)
 ├── content/                   roda nas páginas do eSocial
 │   ├── esocial-adapter.js     *** mapeamento do eSocial (IRRF por trabalhador) ***
 │   └── content-script.js      recebe ordens e devolve os XMLs
+├── informe/                   gerador de Informe de Rendimentos
+│   ├── informe-core.js        parser do S-5002 + modelo + formatação
+│   ├── informe-layout.js      HTML do informe (layout oficial)
+│   ├── informe-export.js      exportação PNG/PDF (sem dependências)
+│   ├── informe.html/.css/.js  página de preview e download
 └── sidepanel/                 interface (UI)
     ├── panel.html
     ├── panel.css
@@ -150,6 +156,58 @@ interface estável.
 | 7 | Recuperação e continuidade | `storage.js` + `orchestrator.js` (`recuperar`, fila persistida, anti-duplicação) |
 | 8 | Controle de execução (status, contadores, pausar/retomar/cancelar) | `panel.html` / `panel.js` |
 | 9 | Mapeamento do eSocial | `esocial-adapter.js` (mapeado para a tela IRRF por trabalhador) |
+
+## Keepalive de sessão (15 min)
+
+O eSocial encerra a sessão após **15 minutos** sem "salvar, confirmar
+informações ou mudar de página". Para evitar isso, um alarme do *service worker*
+dispara a cada **10 minutos** (`CONFIG.SESSAO_MIN`) e, para cada aba do eSocial
+aberta, injeta no **mundo principal** da página (`src/background/keepalive.js`)
+uma rotina que:
+
+1. faz uma requisição `XMLHttpRequest` autenticada ao portal — renova a sessão
+   no servidor e aciona os mesmos *hooks* de atividade que o portal usa para
+   reiniciar o contador;
+2. dispara eventos sintéticos de atividade (`mousemove`/`keydown`) como reforço.
+
+Durante um lote de downloads as próprias consultas já mantêm a sessão viva; o
+keepalive cobre os períodos ociosos e lotes longos.
+
+## Gerador de Informe de Rendimentos (PDF + imagem)
+
+Na seção **"Gerar Informe de Rendimentos"** do painel, selecione a pasta
+`IRRF eSocial` inteira (todos os colaboradores) ou a pasta de uma pessoa. Os
+XMLs são lidos **localmente** (sem upload), agrupados por pessoa e ano, e a
+extensão abre uma página com o informe no layout oficial, permitindo
+**Baixar PDF**, **Baixar PNG**, **Imprimir** e **Baixar todos (PDF)**.
+
+Mapeamento dos valores (evento **S-5002 / evtIrrfBenef**), em `informe-core.js`:
+
+| Informe | Origem no XML |
+|---------|---------------|
+| Coluna do mês | `perApur` (mês de pagamento / regime de caixa) |
+| 3.1 Total dos Rendimentos | `consolidApurMen/vlrRendTrib` |
+| 3.2 Prev. Oficial | `vlrPrevOficial` |
+| 3.4 Pensão Alimentícia | `penAlim/vlrDedPenAlim` (tpRend ≠ 12) |
+| 3.5 IRRF | `vlrCRMen` |
+| 5.1 13º salário | `vlrRendTrib13 − vlrPrevOficial13 − pensão(tpRend=12)` |
+| 5.2 IRRF 13º | `vlrCR13Men` |
+| 7.1 Plano de saúde | `planSaude` → CNPJ operadora + titular (`vlrSaudeTit`) e dependentes (`infoDepSau`) |
+| 7.3 Pensão alimentícia | beneficiários de `penAlim`, nome via `ideDep` |
+
+Pontos de atenção corrigidos em relação a informes gerados por outras fontes:
+
+- **`tpInfoIR = 7900`** (verba transitada) **não é rendimento** e é excluído.
+- O **13º** é separado para a tributação exclusiva (seção 5), não somado ao mensal.
+- O **nome/CPF do beneficiário da pensão** é resolvido cruzando `penAlim.cpfDep`
+  com `ideDep.nome`.
+- O **plano de saúde** é subdividido por **titular e dependentes**, com o
+  **CNPJ da operadora** e os valores detalhados por mês.
+
+> A Razão Social e o CNPJ completo da fonte pagadora não constam no S-5002
+> (que traz apenas a raiz de 8 dígitos do CNPJ); por isso são **campos
+> editáveis** na página do informe. O nome do beneficiário é obtido do nome da
+> pasta (`IRRF eSocial/<NOME>/...`) e também pode ser ajustado.
 
 ## Limitações e notas técnicas
 

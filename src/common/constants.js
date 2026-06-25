@@ -60,5 +60,9 @@
     TIMEOUT_ELEMENTO_MS: 20000,
     // Nome do alarme usado para manter o service worker vivo / watchdog.
     ALARM_KEEPALIVE: 'irrf_keepalive',
+    // Alarme que mantem a sessao do eSocial viva (evita expirar em 15 min).
+    ALARM_SESSAO: 'irrf_sessao',
+    // Periodo (min) do keepalive de sessao — bem antes dos 15 min do portal.
+    SESSAO_MIN: 10,
   };
 })();

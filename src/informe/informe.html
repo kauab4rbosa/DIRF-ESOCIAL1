@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Informe de Rendimentos</title>
+    <link rel="stylesheet" href="/fonts/poppins.css" />
+    <link rel="stylesheet" href="informe.css" />
+  </head>
+  <body>
+    <div id="toolbar" class="toolbar">
+      <div class="grp">
+        <label>Razão Social
+          <input id="razao" type="text" placeholder="Nome da empresa (fonte pagadora)" />
+        </label>
+        <label>CNPJ
+          <input id="cnpj" type="text" placeholder="00.000.000/0000-00" />
+        </label>
+      </div>
+      <div class="grp">
+        <label>Pessoa
+          <select id="pessoa"></select>
+        </label>
+      </div>
+      <div class="grp acoes">
+        <button id="btnPdf" class="primario">Baixar PDF</button>
+        <button id="btnPng">Baixar PNG</button>
+        <button id="btnPrint">Imprimir</button>
+        <button id="btnTodos">Baixar todos (PDF)</button>
+      </div>
+      <div id="aviso" class="aviso"></div>
+    </div>
+
+    <div id="preview" class="preview"></div>
+
+    <script src="/src/common/namespace.js"></script>
+    <script src="/src/informe/informe-core.js"></script>
+    <script src="/src/informe/informe-layout.js"></script>
+    <script src="/src/informe/informe-export.js"></script>
+    <script src="informe.js"></script>
+  </body>
+</html>

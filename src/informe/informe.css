@@ -1,0 +1,112 @@
+:root {
+  --azul: #1351b4;
+  --azul2: #1f95c9;
+  --cinza: #6b7280;
+  --cinza-claro: #e5e7eb;
+  --fundo: #eceff1;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--fundo);
+  font-family: "Poppins", "Segoe UI", Roboto, system-ui, sans-serif;
+  font-size: 14px;
+  color: #1b1b1b;
+}
+
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #fff;
+  border-bottom: 1px solid var(--cinza-claro);
+  padding: 12px 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 22px;
+  align-items: flex-end;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+}
+.toolbar .grp {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+.toolbar label {
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  color: var(--cinza);
+  gap: 3px;
+  font-weight: 600;
+}
+.toolbar input,
+.toolbar select {
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 9px;
+  border: 1px solid var(--cinza-claro);
+  border-radius: 8px;
+  min-width: 180px;
+}
+.toolbar input:focus,
+.toolbar select:focus {
+  outline: 2px solid var(--azul);
+  border-color: var(--azul);
+}
+.acoes {
+  gap: 8px;
+}
+.toolbar button {
+  font: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--cinza-claro);
+  background: #fff;
+  cursor: pointer;
+}
+.toolbar button:hover {
+  background: #f3f4f6;
+}
+.toolbar button.primario {
+  background: var(--azul);
+  color: #fff;
+  border-color: var(--azul);
+}
+.toolbar button.primario:hover {
+  background: #0c326f;
+}
+.aviso {
+  flex-basis: 100%;
+  color: #b45309;
+  font-size: 12px;
+}
+.aviso:empty {
+  display: none;
+}
+
+.preview {
+  display: flex;
+  justify-content: center;
+  padding: 24px 12px 60px;
+}
+.preview .inf {
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.12);
+}
+[data-edit="nome"] {
+  outline: 1px dashed transparent;
+}
+[data-edit="nome"]:hover,
+[data-edit="nome"]:focus {
+  outline: 1px dashed var(--azul2);
+  cursor: text;
+}
+
+@media print {
+  .toolbar { display: none; }
+  body { background: #fff; }
+  .preview { padding: 0; }
+  .preview .inf { box-shadow: none; }
+}
