@@ -226,6 +226,9 @@ Pontos de atenção corrigidos em relação a informes gerados por outras fontes
 >
 > A Razão Social, o CNPJ completo e a razão social das operadoras não constam
 > no S-5002; são preenchidos via derivação/consulta e permanecem **editáveis**.
+> Além disso, **no download** a extensão captura o **estabelecimento real**
+> (CNPJ completo + razão) do portal e grava `IRRF eSocial/_empresa_<raiz>.json`;
+> quando presente, o gerador usa esse CNPJ (cobre o caso de **filial** ≠ 0001).
 > O nome do beneficiário vem do nome da pasta (`IRRF eSocial/<NOME>/...`).
 
 ## Limitações e notas técnicas

@@ -40,10 +40,22 @@
 
   // ---------------- upload + parsing ----------------
   async function processarPasta(fileList) {
-    const arqs = Array.from(fileList || []).filter((f) => /\.xml$/i.test(f.name));
+    const todos = Array.from(fileList || []);
+    const arqs = todos.filter((f) => /\.xml$/i.test(f.name));
     if (!arqs.length) {
       $('statusUpload').textContent = 'Nenhum arquivo XML encontrado na seleção.';
       return;
+    }
+
+    // Sidecar com o estabelecimento real (gravado pelo download): tem
+    // prioridade sobre o CNPJ derivado.
+    const empresaPorRaiz = {};
+    for (const f of todos.filter((f) => /_empresa.*\.json$/i.test(f.name))) {
+      try {
+        const j = JSON.parse(await f.text());
+        const r = String(j.raiz || '').replace(/\D/g, '').slice(0, 8);
+        if (r) empresaPorRaiz[r] = { cnpj: j.cnpj || '', razao: j.razao || '' };
+      } catch (_) {}
     }
     $('statusUpload').textContent = `Lendo ${arqs.length} arquivo(s)…`;
 
@@ -73,9 +85,17 @@
     }
 
     modelos = NS.informe.construirModelos(registros, nomePorCpf);
+    // aplica o estabelecimento real (sidecar) antes do auto-preenchimento
+    for (const m of modelos) {
+      const e = empresaPorRaiz[rootOf(m)];
+      if (e) {
+        if (e.cnpj) m.cnpjFonte = e.cnpj;
+        if (e.razao) m.razaoSocial = e.razao;
+      }
+    }
     idx = 0;
     mostrarApp();
-    autoPreencher(); // assíncrono (razão social / CNPJ)
+    autoPreencher(); // assíncrono (razão social / CNPJ) — só preenche o que faltar
   }
 
   // ---------------- auto-preenchimento (empresa + operadoras) ----------------

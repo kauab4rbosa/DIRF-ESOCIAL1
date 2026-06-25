@@ -60,5 +60,17 @@
     });
   }
 
-  NS.downloader = { sanitizar, xmlParaDataUrl, montarCaminho, baixar };
+  // Grava um arquivo de texto (ex.: sidecar JSON com dados da empresa).
+  function baixarTexto({ conteudo, caminho, mime }) {
+    const url = `data:${mime || 'text/plain'};charset=utf-8,` + encodeURIComponent(conteudo);
+    return new Promise((resolve, reject) => {
+      chrome.downloads.download({ url, filename: caminho, conflictAction: 'overwrite', saveAs: false }, (id) => {
+        const err = chrome.runtime.lastError;
+        if (err) reject(new Error(err.message));
+        else resolve(id);
+      });
+    });
+  }
+
+  NS.downloader = { sanitizar, xmlParaDataUrl, montarCaminho, baixar, baixarTexto };
 })();

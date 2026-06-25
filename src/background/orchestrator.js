@@ -248,6 +248,22 @@
     }
   }
 
+  // Grava o sidecar _empresa_<raiz>.json (uma vez por raiz, por sessao do
+  // worker). conflictAction overwrite -> seguro reescrever.
+  const empresasSalvas = new Set();
+  async function talvezSalvarEmpresa(estado, empresa) {
+    const raiz = String(empresa.cnpj || '').replace(/\D/g, '').slice(0, 8);
+    if (raiz.length !== 8 || empresasSalvas.has(raiz)) return;
+    empresasSalvas.add(raiz);
+    try {
+      const conteudo = JSON.stringify({ raiz, cnpj: empresa.cnpj, razao: empresa.razao || '' });
+      const caminho = `${NS.downloader.sanitizar(estado.config.pastaRaiz)}/_empresa_${raiz}.json`;
+      await NS.downloader.baixarTexto({ conteudo, caminho, mime: 'application/json' });
+    } catch (_) {
+      empresasSalvas.delete(raiz);
+    }
+  }
+
   // Executa uma tarefa conversando com o content script da aba.
   async function executarTarefa(estado, tarefa) {
     const abaId = estado.abaId;
@@ -262,6 +278,13 @@
     });
 
     if (!resposta) return { ok: false, erro: 'Sem resposta do content script.' };
+
+    // Grava (uma vez por raiz de CNPJ) o estabelecimento real capturado do
+    // portal, para o gerador de informe usar o CNPJ completo correto.
+    if (resposta.empresa && resposta.empresa.cnpj) {
+      await talvezSalvarEmpresa(estado, resposta.empresa);
+    }
+
     if (resposta.semRegistro) {
       return { ok: false, semRegistro: true, colaborador: resposta.colaborador };
     }

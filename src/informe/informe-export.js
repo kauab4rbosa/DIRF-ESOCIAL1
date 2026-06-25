@@ -60,7 +60,7 @@
   // Rasteriza e devolve { jpeg:Uint8Array, w, h }.
   async function elementoParaJpeg(el, escala, qualidade) {
     const canvas = await elementoParaCanvas(el, escala || 2);
-    const jpeg = dataUrlParaBytes(canvas.toDataURL('image/jpeg', qualidade || 0.92));
+    const jpeg = dataUrlParaBytes(canvas.toDataURL('image/jpeg', qualidade || 0.95));
     return { jpeg, w: canvas.width, h: canvas.height };
   }
 

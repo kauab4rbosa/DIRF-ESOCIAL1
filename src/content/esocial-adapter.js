@@ -106,6 +106,47 @@
     return parseHtml(html);
   }
 
+  // Captura, da pagina do portal, o CNPJ COMPLETO (com o estabelecimento
+  // real) e a razao social da empresa selecionada. Best-effort: procura um
+  // CNPJ formatado no cabecalho/menu e um nome proximo. Como o gerador so
+  // aplica o resultado quando a raiz (8 primeiros digitos) bate com a do
+  // S-5002, uma captura incorreta e simplesmente ignorada.
+  // TODO: se nao capturar no portal real, ajustar os escopos abaixo com o
+  // HTML do cabecalho da empresa.
+  function capturarEmpresa() {
+    const re = /(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})/;
+    const escopos = [
+      document.querySelector('#header'),
+      document.querySelector('.navbar'),
+      document.querySelector('#barra-governo-container'),
+      document.body,
+    ].filter(Boolean);
+    for (const sc of escopos) {
+      const t = sc.innerText || sc.textContent || '';
+      const m = t.match(re);
+      if (!m) continue;
+      const cnpj = m[1];
+      const idx = t.indexOf(cnpj);
+      // Texto antes do CNPJ, sem o rotulo "CNPJ" e separadores finais.
+      let antes = t
+        .slice(Math.max(0, idx - 180), idx)
+        .replace(/cnpj\s*:?\s*$/i, '')
+        .replace(/[\-–—|:.\s]+$/, '');
+      // Ultimo trecho parecido com nome de empresa (rotulo ":" nao entra).
+      let razao = '';
+      const m2 = antes.match(/([A-Za-z0-9À-ÿ][A-Za-z0-9À-ÿ&.\-/ ]{4,})$/);
+      if (m2) {
+        const c = m2[1]
+          .replace(/\b(empregador|empregado|contribuinte|raz[aã]o\s*social)\b\s*:?/gi, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+        if (c.length >= 5) razao = c;
+      }
+      return { cnpj, razao };
+    }
+    return { cnpj: '', razao: '' };
+  }
+
   // ---------------------------------------------------------------
   //  Coleta de uma combinacao CPF x competencia.
   //  Retorna:
@@ -124,11 +165,12 @@
 
       const nomeEl = doc.querySelector(SEL.NOME);
       const colaborador = nomeEl ? (nomeEl.getAttribute('value') || '').trim() : null;
+      const empresa = capturarEmpresa();
 
       const links = Array.from(doc.querySelectorAll(SEL.LINK_XML));
       if (!links.length) {
         // Trabalhador sem IRRF nesta competencia.
-        return { ok: true, semRegistro: true, colaborador };
+        return { ok: true, semRegistro: true, colaborador, empresa };
       }
 
       const arquivos = [];
@@ -147,7 +189,7 @@
         arquivos.push({ conteudo, sufixo: idEvento });
       }
 
-      return { ok: true, colaborador: colaborador || NS.cpf.normalizar(cpf), arquivos };
+      return { ok: true, colaborador: colaborador || NS.cpf.normalizar(cpf), arquivos, empresa };
     } catch (err) {
       return { ok: false, erro: err && err.message ? err.message : String(err) };
     }
@@ -156,6 +198,6 @@
   NS.adapter = {
     coletar,
     SEL,
-    _internal: { descobrirEndpoint, obterEndpoint, pesquisar, parseHtml, fetchTexto },
+    _internal: { descobrirEndpoint, obterEndpoint, pesquisar, parseHtml, fetchTexto, capturarEmpresa },
   };
 })();
