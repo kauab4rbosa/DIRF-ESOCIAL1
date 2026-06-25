@@ -186,13 +186,6 @@
       }
     }
 
-    // Deducao de dependentes do 13o (tpRend=12). Convencao do informe:
-    // "o que der menos" -> sempre subtrai a deducao de dependente.
-    let dep13 = 0;
-    for (const dd of acharTodos(complem, 'dedDepen')) {
-      if (txt(dd, 'tpRend') === '12') dep13 += nmero(dd, 'vlrDedDep');
-    }
-
     // previdencia complementar (mensal)
     let prevCompl = 0;
     for (const pc of acharTodos(complem, 'previdCompl')) prevCompl += nmero(pc, 'vlrDedPC');
@@ -208,9 +201,9 @@
       })),
     }));
 
-    // 13o no informe = "o que der menos": bruto - INSS - pensao - IRRF,
-    // sempre subtraindo tambem a deducao de dependente (candidato menor).
-    const base13 = v.rendTrib13 - v.prevOficial13 - pensao13 - dep13 - v.irrf13;
+    // 13o no informe = rendimento tributavel bruto (sem deduzir impostos).
+    // O IRRF do 13o aparece em linha propria (vlrCR13Men).
+    const base13 = v.rendTrib13;
 
     return {
       cpf,
