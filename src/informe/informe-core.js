@@ -119,11 +119,13 @@
     const ideTrab = acharUm(evt, 'ideTrabalhador');
     const cpf = txt(ideTrab, 'cpfBenef');
 
-    // ---- valores mensais consolidados ----
-    const totInfoIR = acharUm(ideTrab, 'totInfoIR');
-    let consolids = acharTodos(totInfoIR, 'consolidApurMen');
-    // fallback: se nao houver consolidacao, usar os totApurMen dos dmDev
-    if (!consolids.length) consolids = acharTodos(ideTrab, 'totApurMen');
+    // ---- valores: totApurMen, por dmDev (somados aqui). consolidApurMen,
+    // quando presente, e a consolidacao desses mesmos valores. ----
+    let consolids = acharTodos(ideTrab, 'totApurMen');
+    if (!consolids.length) {
+      const totInfoIR = acharUm(ideTrab, 'totInfoIR');
+      consolids = acharTodos(totInfoIR, 'consolidApurMen');
+    }
 
     const crSet = new Set();
     const v = {
@@ -171,12 +173,10 @@
     let pensao13 = 0;
     const pensaoPorCpf = {}; // mensal, por beneficiario
     const pensao13PorCpf = {}; // 13o, por beneficiario
-    const cpfsPensao = new Set(); // quem recebe pensao (qualquer tpRend)
     for (const p of acharTodos(complem, 'penAlim')) {
       const tpRend = txt(p, 'tpRend');
       const cpfDep = txt(p, 'cpfDep');
       const val = nmero(p, 'vlrDedPenAlim');
-      cpfsPensao.add(cpfDep);
       if (tpRend === '12') {
         pensao13 += val;
         pensao13PorCpf[cpfDep] = (pensao13PorCpf[cpfDep] || 0) + val;
@@ -186,14 +186,11 @@
       }
     }
 
-    // Deducao de dependentes do 13o (tpRend=12). Nao se deduz dependente E
-    // pensao para o mesmo CPF -> exclui dependentes que tambem sao
-    // beneficiarios de pensao (evita dupla deducao na base do 13o).
+    // Deducao de dependentes do 13o (tpRend=12). Convencao do informe:
+    // "o que der menos" -> sempre subtrai a deducao de dependente.
     let dep13 = 0;
     for (const dd of acharTodos(complem, 'dedDepen')) {
-      if (txt(dd, 'tpRend') === '12' && !cpfsPensao.has(txt(dd, 'cpfDep'))) {
-        dep13 += nmero(dd, 'vlrDedDep');
-      }
+      if (txt(dd, 'tpRend') === '12') dep13 += nmero(dd, 'vlrDedDep');
     }
 
     // previdencia complementar (mensal)
@@ -211,8 +208,8 @@
       })),
     }));
 
-    // 13o liquido (como no sistema de folha):
-    //   bruto - INSS - pensao - deducao de dependente (valida) - IRRF.
+    // 13o no informe = "o que der menos": bruto - INSS - pensao - IRRF,
+    // sempre subtraindo tambem a deducao de dependente (candidato menor).
     const base13 = v.rendTrib13 - v.prevOficial13 - pensao13 - dep13 - v.irrf13;
 
     return {
