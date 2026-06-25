@@ -14,7 +14,8 @@
   ],
   "host_permissions": [
     "*://*.esocial.gov.br/*",
-    "*://*.gov.br/*"
+    "*://*.gov.br/*",
+    "https://brasilapi.com.br/*"
   ],
   "background": {
     "service_worker": "src/background/service-worker.js"

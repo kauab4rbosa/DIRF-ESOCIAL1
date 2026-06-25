@@ -24,12 +24,10 @@
         </label>
       </div>
       <div class="grp acoes">
-        <button id="btnPdf" class="primario">Baixar PDF (atual)</button>
-        <button id="btnTodos">Baixar todos</button>
-        <label class="chk" id="lblJuntar">
-          <input type="checkbox" id="juntar" /> Juntar num único PDF
+        <button id="btnPdf" class="primario">Baixar PDF</button>
+        <label class="chk" id="lblQuebra">
+          <input type="checkbox" id="quebra" /> Quebrar por empregado (.zip)
         </label>
-        <button id="btnPrint">Imprimir</button>
         <button id="btnTrocar" class="link">Trocar pasta</button>
       </div>
       <div id="aviso" class="aviso"></div>
@@ -57,6 +55,8 @@
     <script src="/src/informe/informe-core.js"></script>
     <script src="/src/informe/informe-layout.js"></script>
     <script src="/src/informe/informe-export.js"></script>
+    <script src="/src/informe/zip.js"></script>
+    <script src="/src/informe/lookup.js"></script>
     <script src="informe.js"></script>
   </body>
 </html>

@@ -173,18 +173,28 @@ uma rotina que:
 Durante um lote de downloads as próprias consultas já mantêm a sessão viva; o
 keepalive cobre os períodos ociosos e lotes longos.
 
-## Gerador de Informe de Rendimentos (PDF + imagem)
+## Gerador de Informe de Rendimentos (PDF)
 
 No painel, clique em **"Abrir gerador de informes"** — abre uma página dedicada
 (aba normal). Nela, selecione a pasta `IRRF eSocial` inteira (todos os
 colaboradores) ou a pasta de um colaborador. Os XMLs são lidos **localmente**
 (nada sai do navegador), agrupados por pessoa e ano, e a página mostra o informe
-no layout oficial.
+no layout oficial. O PDF é gerado rasterizando o **mesmo** elemento exibido, de
+modo que o arquivo é idêntico ao preview.
 
-Exportação **somente em PDF**, com a opção de gerar **um PDF por colaborador**
-ou **todos juntos num único PDF** (marcando *"Juntar num único PDF"*). Há ainda
-**Imprimir** como alternativa. O upload roda na página (e não no painel lateral)
-porque seletores de pasta no *side panel* são instáveis.
+Exportação **somente em PDF**:
+
+- **Baixar PDF** junta todos os colaboradores da tela num **único PDF**
+  (uma página por colaborador).
+- Marcando **"Quebrar por empregado"**, gera um **PDF por colaborador** e baixa
+  tudo num **`.zip`**.
+
+A **Razão Social** e o **CNPJ completo** da empresa são preenchidos
+automaticamente (CNPJ matriz derivado da raiz de 8 dígitos do S-5002 +
+consulta [BrasilAPI](https://brasilapi.com.br)); a **razão social das
+operadoras** de plano de saúde também é resolvida pelo CNPJ. Todos esses campos
+ficam **editáveis** (fallback caso a consulta falhe). O upload roda na página
+(e não no painel) porque seletores de pasta no *side panel* são instáveis.
 
 Mapeamento dos valores (evento **S-5002 / evtIrrfBenef**), em `informe-core.js`:
 
@@ -207,12 +217,16 @@ Pontos de atenção corrigidos em relação a informes gerados por outras fontes
 - O **nome/CPF do beneficiário da pensão** é resolvido cruzando `penAlim.cpfDep`
   com `ideDep.nome`.
 - O **plano de saúde** é subdividido por **titular e dependentes**, com o
-  **CNPJ da operadora** e os valores detalhados por mês.
+  **CNPJ + razão social da operadora** e os valores detalhados por mês.
 
-> A Razão Social e o CNPJ completo da fonte pagadora não constam no S-5002
-> (que traz apenas a raiz de 8 dígitos do CNPJ); por isso são **campos
-> editáveis** na página do informe. O nome do beneficiário é obtido do nome da
-> pasta (`IRRF eSocial/<NOME>/...`) e também pode ser ajustado.
+> Conferência: os totais (Rendimentos, INSS, IRRF, Pensão) foram comparados,
+> mês a mês, com o informe de um sistema de folha e **batem exatamente**. O
+> **13º salário** é apresentado líquido (`bruto − INSS − pensão`), conforme o
+> Comprovante oficial — alguns sistemas exibem o valor bruto.
+>
+> A Razão Social, o CNPJ completo e a razão social das operadoras não constam
+> no S-5002; são preenchidos via derivação/consulta e permanecem **editáveis**.
+> O nome do beneficiário vem do nome da pasta (`IRRF eSocial/<NOME>/...`).
 
 ## Limitações e notas técnicas
 

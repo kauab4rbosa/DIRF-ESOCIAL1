@@ -315,9 +315,37 @@
     return modelos;
   }
 
+  // Calcula os 2 digitos verificadores de um CNPJ a partir dos 12 primeiros.
+  function dvCnpj(base12) {
+    const calc = (nums) => {
+      const pesos =
+        nums.length === 12
+          ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+          : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+      let s = 0;
+      for (let i = 0; i < nums.length; i++) s += nums[i] * pesos[i];
+      const r = s % 11;
+      return r < 2 ? 0 : 11 - r;
+    };
+    const arr = base12.split('').map(Number);
+    const d1 = calc(arr);
+    const d2 = calc(arr.concat(d1));
+    return '' + d1 + d2;
+  }
+
+  // Deriva o CNPJ completo (14 dig.) da matriz (0001) a partir da raiz de 8 dig.
+  // do S-5002. Pode divergir se o estabelecimento nao for a matriz — por isso
+  // o campo permanece editavel na pagina.
+  function cnpjMatriz(raiz) {
+    const r = String(raiz || '').replace(/\D/g, '').padStart(8, '0').slice(0, 8);
+    const base = r + '0001';
+    return base + dvCnpj(base);
+  }
+
   NS.informe = {
     parseXml,
     construirModelos,
+    cnpjMatriz,
     fmt: { moeda: fmtMoeda, cpf: fmtCpf, cnpj: fmtCnpj },
     _util: { acharTodos, acharUm, txt, nmero },
   };

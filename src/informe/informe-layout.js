@@ -80,7 +80,10 @@
     let h = '';
     for (const cnpj of cnpjs) {
       const pl = model.planos[cnpj];
-      h += `<div class="sub">Operadora: <b>${fmt().cnpj(cnpj)}</b>${pl.regANS ? ` &middot; ANS ${esc(pl.regANS)}` : ''}</div>`;
+      h +=
+        `<div class="sub">Operadora: ` +
+        `<b data-edit="oper" data-cnpj="${esc(cnpj)}">${esc(pl.razao || '—')}</b> ` +
+        `&middot; CNPJ ${fmt().cnpj(cnpj)}${pl.regANS ? ` &middot; ANS ${esc(pl.regANS)}` : ''}</div>`;
       h += `<div class="nota">Pagamentos a planos de saúde no ano referência</div>`;
       // Titular
       h += blocoMesesIdent('Titular (CPF)', fmt().cpf(model.cpf), pl.titMeses);
@@ -162,12 +165,12 @@
 .inf .sub{ background:#eef0f1; padding:5px 8px; margin-top:8px; font-weight:bold; }
 .inf .nota{ padding:5px 2px; color:#333; }
 .inf table.grade{ width:100%; border-collapse:collapse; margin-top:6px; table-layout:fixed; }
-.inf table.grade th, .inf table.grade td{ border:0; padding:3px 2px; text-align:right;
-  font-size:9px; overflow:hidden; }
+.inf table.grade th, .inf table.grade td{ border:0; padding:2px 1px; text-align:right;
+  font-size:8px; white-space:nowrap; }
 .inf table.grade th{ color:#1f95c9; font-weight:bold; border-bottom:1px solid #cdd2d6; text-align:right; }
-.inf table.grade th.lbl, .inf table.grade td.lbl{ text-align:left; width:230px;
-  white-space:normal; font-size:9px; }
-.inf table.grade th.tot, .inf table.grade td.tot{ font-weight:bold; border-left:1px solid #e2e6e9; width:60px; }
+.inf table.grade th.lbl, .inf table.grade td.lbl{ text-align:left; width:208px;
+  white-space:normal; font-size:8.5px; padding-right:6px; }
+.inf table.grade th.tot, .inf table.grade td.tot{ font-weight:bold; border-left:1px solid #e2e6e9; width:64px; }
 .inf table.grade tr:nth-child(even) td{ background:#f7f9fa; }
 .inf table.grade tr.hm th{ background:#fff; }
 .inf .strike td{ color:#9aa0a6; text-decoration:line-through; }

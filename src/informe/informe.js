@@ -1,8 +1,14 @@
 /*
  * informe.js — página do Informe de Rendimentos.
- * Faz o upload da pasta, parseia os XMLs (S-5002), monta os modelos,
- * exibe o preview e exporta em PDF (individual por colaborador ou todos
- * juntos no mesmo PDF). A Razão Social, o CNPJ e o Nome são editáveis.
+ * Upload da pasta -> parse dos XMLs (S-5002) -> preview -> exportação.
+ *
+ * "Baixar PDF": junta todos os informes da tela num único PDF (uma página
+ * por colaborador). Marcando "Quebrar por empregado", baixa PDFs separados
+ * dentro de um .zip.
+ *
+ * Razão Social e CNPJ completo da empresa são preenchidos automaticamente
+ * (CNPJ matriz derivado da raiz + consulta BrasilAPI), assim como a razão
+ * social das operadoras de plano de saúde. Todos os campos são editáveis.
  */
 (function () {
   const NS = self.IRRF;
@@ -11,9 +17,10 @@
 
   let modelos = [];
   let idx = 0;
-  let fonte = { razao: '', cnpj: '' };
 
-  // Nome do colaborador a partir da pasta-pai ("IRRF eSocial/<NOME>/...").
+  const rootOf = (m) =>
+    String((m.empregador && m.empregador.nrInsc) || '').replace(/\D/g, '').padStart(8, '0').slice(0, 8);
+
   function nomeDaPasta(path) {
     const p = String(path || '').split('/').filter(Boolean);
     if (p.length >= 2) {
@@ -23,14 +30,12 @@
     return '';
   }
 
-  function aplicarFonte(m) {
-    m.razaoSocial = fonte.razao || '';
-    m.cnpjFonte = fonte.cnpj || '';
-    return m;
-  }
-
   function nomeArquivo(m) {
     return `Informe ${m.ano} - ${m.nome || NS.informe.fmt.cpf(m.cpf)}`;
+  }
+
+  function anosLabel() {
+    return [...new Set(modelos.map((m) => m.ano))].sort().join('-');
   }
 
   // ---------------- upload + parsing ----------------
@@ -70,6 +75,46 @@
     modelos = NS.informe.construirModelos(registros, nomePorCpf);
     idx = 0;
     mostrarApp();
+    autoPreencher(); // assíncrono (razão social / CNPJ)
+  }
+
+  // ---------------- auto-preenchimento (empresa + operadoras) ----------------
+  async function autoPreencher() {
+    // CNPJ completo (matriz) derivado da raiz; razão via BrasilAPI.
+    const porRaiz = {};
+    for (const m of modelos) {
+      const r = rootOf(m);
+      (porRaiz[r] = porRaiz[r] || []).push(m);
+      if (!m.cnpjFonte) m.cnpjFonte = NS.informe.fmt.cnpj(NS.informe.cnpjMatriz(r));
+    }
+    sincronizarToolbar();
+    render();
+
+    for (const r of Object.keys(porRaiz)) {
+      try {
+        const razao = await NS.informeLookup.razaoSocial(NS.informe.cnpjMatriz(r));
+        if (razao) {
+          for (const m of porRaiz[r]) if (!m.razaoSocial) m.razaoSocial = razao;
+          sincronizarToolbar();
+          render();
+        }
+      } catch (_) {}
+    }
+
+    // Operadoras de plano de saúde.
+    const opers = new Set();
+    for (const m of modelos) for (const c of Object.keys(m.planos || {})) opers.add(c);
+    for (const c of opers) {
+      try {
+        const razao = await NS.informeLookup.razaoSocial(c);
+        if (razao) {
+          for (const m of modelos) {
+            if (m.planos && m.planos[c] && !m.planos[c].razao) m.planos[c].razao = razao;
+          }
+          render();
+        }
+      } catch (_) {}
+    }
   }
 
   // ---------------- telas ----------------
@@ -77,6 +122,7 @@
     $('upload').classList.add('oculto');
     $('toolbar').classList.remove('oculto');
     montarPessoas();
+    sincronizarToolbar();
     render();
   }
 
@@ -100,29 +146,42 @@
     });
     const varias = modelos.length > 1;
     $('grpPessoa').style.display = varias ? '' : 'none';
-    $('btnTodos').style.display = varias ? '' : 'none';
-    $('lblJuntar').style.display = varias ? '' : 'none';
+    $('lblQuebra').style.display = varias ? '' : 'none';
+  }
+
+  function sincronizarToolbar() {
+    const m = modelos[idx] || {};
+    $('razao').value = m.razaoSocial || '';
+    $('cnpj').value = m.cnpjFonte || '';
   }
 
   function render() {
-    const m = aplicarFonte(modelos[idx]);
+    const m = modelos[idx];
+    if (!m) return;
     $('preview').innerHTML = NS.informeLayout.buildHtml(m);
+
     const elNome = document.querySelector('#preview [data-edit="nome"]');
     if (elNome) {
       elNome.setAttribute('contenteditable', 'true');
       elNome.addEventListener('input', () => {
-        modelos[idx].nome = elNome.textContent.trim();
-        // reflete no seletor
+        m.nome = elNome.textContent.trim();
         const opt = $('pessoa').options[idx];
-        if (opt) opt.textContent = `${modelos[idx].nome || NS.informe.fmt.cpf(modelos[idx].cpf)} — ${modelos[idx].ano}`;
+        if (opt) opt.textContent = `${m.nome || NS.informe.fmt.cpf(m.cpf)} — ${m.ano}`;
       });
     }
+    // operadoras editáveis
+    document.querySelectorAll('#preview [data-edit="oper"]').forEach((el) => {
+      el.setAttribute('contenteditable', 'true');
+      el.addEventListener('input', () => {
+        const cnpj = el.getAttribute('data-cnpj');
+        const txt = el.textContent.trim();
+        for (const mm of modelos) if (mm.planos && mm.planos[cnpj]) mm.planos[cnpj].razao = txt;
+      });
+    });
   }
 
   // ---------------- exportação ----------------
-  // Rasteriza um modelo (fora da tela) e devolve { jpeg, w, h }.
   async function paginaDe(model) {
-    aplicarFonte(model);
     const host = $('offscreen');
     host.innerHTML = NS.informeLayout.buildHtml(model);
     const el = host.querySelector('.inf');
@@ -136,47 +195,45 @@
     $('aviso').textContent = txt || '';
   }
 
-  async function comExport(fn) {
+  async function baixarPdf() {
     aviso('');
     document.body.style.cursor = 'progress';
     try {
-      await fn();
+      // um único colaborador -> um PDF
+      if (modelos.length === 1) {
+        const pg = await paginaDe(modelos[0]);
+        NS.informeExport.baixarPdf([pg], nomeArquivo(modelos[0]));
+        return;
+      }
+
+      const quebrar = $('quebra').checked;
+      if (quebrar) {
+        // PDFs separados, num .zip
+        const arquivos = [];
+        for (let i = 0; i < modelos.length; i++) {
+          aviso(`Gerando ${i + 1}/${modelos.length}…`);
+          const pg = await paginaDe(modelos[i]);
+          const pdf = NS.informeExport.montarPdf([pg]);
+          arquivos.push({ nome: NS.informeExport.sanitizarNome(nomeArquivo(modelos[i])) + '.pdf', dados: pdf });
+          await sleep(15);
+        }
+        const zip = NS.zip.criarZip(arquivos);
+        NS.informeExport.baixarBlob(new Blob([zip], { type: 'application/zip' }), `Informes ${anosLabel()}.zip`);
+      } else {
+        // tudo junto num único PDF (uma página por colaborador)
+        const paginas = [];
+        for (let i = 0; i < modelos.length; i++) {
+          aviso(`Gerando ${i + 1}/${modelos.length}…`);
+          paginas.push(await paginaDe(modelos[i]));
+          await sleep(15);
+        }
+        NS.informeExport.baixarPdf(paginas, `Informes ${anosLabel()}`);
+      }
+      aviso('');
     } catch (err) {
-      aviso(
-        'Não foi possível gerar o PDF automaticamente (' +
-          (err && err.message ? err.message : err) +
-          '). Use "Imprimir" e salve como PDF.'
-      );
+      aviso('Falha ao gerar o PDF: ' + (err && err.message ? err.message : err));
     } finally {
       document.body.style.cursor = '';
-    }
-  }
-
-  async function baixarAtual() {
-    const pg = await paginaDe(modelos[idx]);
-    NS.informeExport.baixarPdf([pg], nomeArquivo(modelos[idx]));
-  }
-
-  async function baixarTodos() {
-    const juntar = $('juntar').checked;
-    if (juntar) {
-      const paginas = [];
-      for (let i = 0; i < modelos.length; i++) {
-        aviso(`Gerando ${i + 1}/${modelos.length}…`);
-        paginas.push(await paginaDe(modelos[i]));
-        await sleep(20);
-      }
-      const anos = [...new Set(modelos.map((m) => m.ano))].sort().join('-');
-      NS.informeExport.baixarPdf(paginas, `Informes ${anos}`);
-      aviso('');
-    } else {
-      for (let i = 0; i < modelos.length; i++) {
-        aviso(`Gerando ${i + 1}/${modelos.length}…`);
-        const pg = await paginaDe(modelos[i]);
-        NS.informeExport.baixarPdf([pg], nomeArquivo(modelos[i]));
-        await sleep(250);
-      }
-      aviso('');
     }
   }
 
@@ -184,20 +241,21 @@
   function wire() {
     $('pasta').addEventListener('change', (e) => processarPasta(e.target.files));
     $('razao').addEventListener('input', (e) => {
-      fonte.razao = e.target.value;
+      const r = rootOf(modelos[idx]);
+      for (const m of modelos) if (rootOf(m) === r) m.razaoSocial = e.target.value;
       render();
     });
     $('cnpj').addEventListener('input', (e) => {
-      fonte.cnpj = e.target.value;
+      const r = rootOf(modelos[idx]);
+      for (const m of modelos) if (rootOf(m) === r) m.cnpjFonte = e.target.value;
       render();
     });
     $('pessoa').addEventListener('change', (e) => {
       idx = Number(e.target.value) || 0;
+      sincronizarToolbar();
       render();
     });
-    $('btnPdf').addEventListener('click', () => comExport(baixarAtual));
-    $('btnTodos').addEventListener('click', () => comExport(baixarTodos));
-    $('btnPrint').addEventListener('click', () => window.print());
+    $('btnPdf').addEventListener('click', baixarPdf);
     $('btnTrocar').addEventListener('click', mostrarUpload);
   }
 
