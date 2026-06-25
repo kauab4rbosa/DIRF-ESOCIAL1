@@ -1,15 +1,14 @@
 /*
  * informe-export.js
  * ------------------------------------------------------------------
- * Exportacao do informe (elemento HTML) para PNG e PDF, sem
+ * Exportacao do informe para PDF (uma ou varias paginas), sem
  * dependencias externas:
- *  - PNG: serializa o elemento em SVG/foreignObject e rasteriza num
- *    canvas (texto vetorial -> nitido em alta resolucao).
- *  - PDF: incorpora o JPEG do canvas em um PDF de uma pagina (gerado
- *    a mao, com DCTDecode).
+ *  - rasteriza cada informe (elemento HTML) num <canvas> via
+ *    SVG/foreignObject (texto vetorial -> nitido em alta resolucao);
+ *  - converte para JPEG e monta um PDF (DCTDecode), podendo juntar
+ *    varios colaboradores no mesmo arquivo (uma pagina por informe).
  *
- * Caso a rasterizacao falhe em algum navegador, a pagina oferece o
- * botao "Imprimir" (window.print) como alternativa confiavel.
+ * Fallback confiavel: a pagina tambem oferece "Imprimir" (window.print).
  */
 ;(function () {
   const NS = (self.IRRF = self.IRRF || {});
@@ -49,17 +48,7 @@
     return canvas;
   }
 
-  function canvasParaPngBlob(canvas) {
-    return new Promise((resolve, reject) => {
-      try {
-        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob vazio'))), 'image/png');
-      } catch (e) {
-        reject(e);
-      }
-    });
-  }
-
-  // dataURL JPEG -> Uint8Array
+  // dataURL -> Uint8Array
   function dataUrlParaBytes(dataUrl) {
     const base64 = dataUrl.split(',')[1];
     const bin = atob(base64);
@@ -68,9 +57,15 @@
     return out;
   }
 
-  // Gera um PDF de uma pagina com o JPEG ocupando a pagina (A4 retrato,
-  // altura proporcional a imagem).
-  function jpegParaPdf(jpeg, wpx, hpx) {
+  // Rasteriza e devolve { jpeg:Uint8Array, w, h }.
+  async function elementoParaJpeg(el, escala, qualidade) {
+    const canvas = await elementoParaCanvas(el, escala || 2);
+    const jpeg = dataUrlParaBytes(canvas.toDataURL('image/jpeg', qualidade || 0.92));
+    return { jpeg, w: canvas.width, h: canvas.height };
+  }
+
+  // Monta um PDF com N paginas. paginas = [{ jpeg, w, h }].
+  function montarPdf(paginas) {
     const enc = new TextEncoder();
     const partes = [];
     let len = 0;
@@ -80,39 +75,57 @@
       partes.push(b);
       len += b.length;
     }
-    function obj(n, corpo) {
-      off[n] = len;
-      push(`${n} 0 obj\n${corpo}\nendobj\n`);
-    }
 
-    const pageW = 595.28; // A4 retrato (pt)
-    const pageH = Math.round((pageW * hpx) / wpx * 100) / 100;
+    const N = paginas.length;
+    const pageNums = [];
+    const imgNums = [];
+    const contNums = [];
+    let prox = 3; // 1=catalog, 2=pages
+    for (let i = 0; i < N; i++) {
+      pageNums.push(prox++);
+      imgNums.push(prox++);
+      contNums.push(prox++);
+    }
+    const totalObjs = prox - 1;
+    const A4W = 595.28; // largura A4 retrato (pt)
 
     push(new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34, 0x0a, 0x25, 0xff, 0xff, 0xff, 0xff, 0x0a]));
-    obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
-    obj(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
-    obj(
-      3,
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW} ${pageH}] ` +
-        `/Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`
-    );
-    // imagem (stream binario)
-    off[4] = len;
-    push(
-      `4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${wpx} /Height ${hpx} ` +
-        `/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`
-    );
-    push(jpeg);
-    push('\nendstream\nendobj\n');
-    // conteudo
-    const cont = `q\n${pageW} 0 0 ${pageH} 0 0 cm\n/Im0 Do\nQ\n`;
-    obj(5, `<< /Length ${cont.length} >>\nstream\n${cont}endstream`);
-    // xref
+
+    off[1] = len;
+    push('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+
+    off[2] = len;
+    push(`2 0 obj\n<< /Type /Pages /Kids [${pageNums.map((n) => `${n} 0 R`).join(' ')}] /Count ${N} >>\nendobj\n`);
+
+    for (let i = 0; i < N; i++) {
+      const p = paginas[i];
+      const pageH = Math.round((A4W * p.h) / p.w * 100) / 100;
+
+      off[pageNums[i]] = len;
+      push(
+        `${pageNums[i]} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${A4W} ${pageH}] ` +
+          `/Resources << /XObject << /Im0 ${imgNums[i]} 0 R >> >> /Contents ${contNums[i]} 0 R >>\nendobj\n`
+      );
+
+      off[imgNums[i]] = len;
+      push(
+        `${imgNums[i]} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${p.w} /Height ${p.h} ` +
+          `/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${p.jpeg.length} >>\nstream\n`
+      );
+      push(p.jpeg);
+      push('\nendstream\nendobj\n');
+
+      const cont = `q\n${A4W} 0 0 ${pageH} 0 0 cm\n/Im0 Do\nQ\n`;
+      off[contNums[i]] = len;
+      push(`${contNums[i]} 0 obj\n<< /Length ${cont.length} >>\nstream\n${cont}endstream\nendobj\n`);
+    }
+
     const xrefStart = len;
-    let xref = 'xref\n0 6\n0000000000 65535 f \n';
-    for (let i = 1; i <= 5; i++) xref += String(off[i]).padStart(10, '0') + ' 00000 n \n';
+    const size = totalObjs + 1;
+    let xref = `xref\n0 ${size}\n0000000000 65535 f \n`;
+    for (let n = 1; n <= totalObjs; n++) xref += String(off[n]).padStart(10, '0') + ' 00000 n \n';
     push(xref);
-    push(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`);
+    push(`trailer\n<< /Size ${size} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`);
 
     const out = new Uint8Array(len);
     let o = 0;
@@ -121,6 +134,11 @@
       o += b.length;
     }
     return out;
+  }
+
+  // compat: PDF de uma pagina.
+  function jpegParaPdf(jpeg, w, h) {
+    return montarPdf([{ jpeg, w, h }]);
   }
 
   function baixarBlob(blob, nome) {
@@ -138,28 +156,20 @@
     return String(s || 'informe').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim() || 'informe';
   }
 
-  // API de alto nivel.
-  async function exportarPng(el, nomeBase) {
-    const canvas = await elementoParaCanvas(el, 2);
-    const blob = await canvasParaPngBlob(canvas);
-    baixarBlob(blob, sanitizarNome(nomeBase) + '.png');
-  }
-
-  async function exportarPdf(el, nomeBase) {
-    const canvas = await elementoParaCanvas(el, 2);
-    const jpeg = dataUrlParaBytes(canvas.toDataURL('image/jpeg', 0.92));
-    const pdf = jpegParaPdf(jpeg, canvas.width, canvas.height);
+  // paginas (uma ou varias) -> baixa um unico PDF.
+  function baixarPdf(paginas, nomeBase) {
+    const pdf = montarPdf(paginas);
     baixarBlob(new Blob([pdf], { type: 'application/pdf' }), sanitizarNome(nomeBase) + '.pdf');
   }
 
   NS.informeExport = {
     elementoParaCanvas,
-    canvasParaPngBlob,
-    jpegParaPdf,
+    elementoParaJpeg,
     dataUrlParaBytes,
+    montarPdf,
+    jpegParaPdf,
     baixarBlob,
+    baixarPdf,
     sanitizarNome,
-    exportarPng,
-    exportarPdf,
   };
 })();

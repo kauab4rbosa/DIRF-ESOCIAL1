@@ -175,11 +175,16 @@ keepalive cobre os períodos ociosos e lotes longos.
 
 ## Gerador de Informe de Rendimentos (PDF + imagem)
 
-Na seção **"Gerar Informe de Rendimentos"** do painel, selecione a pasta
-`IRRF eSocial` inteira (todos os colaboradores) ou a pasta de uma pessoa. Os
-XMLs são lidos **localmente** (sem upload), agrupados por pessoa e ano, e a
-extensão abre uma página com o informe no layout oficial, permitindo
-**Baixar PDF**, **Baixar PNG**, **Imprimir** e **Baixar todos (PDF)**.
+No painel, clique em **"Abrir gerador de informes"** — abre uma página dedicada
+(aba normal). Nela, selecione a pasta `IRRF eSocial` inteira (todos os
+colaboradores) ou a pasta de um colaborador. Os XMLs são lidos **localmente**
+(nada sai do navegador), agrupados por pessoa e ano, e a página mostra o informe
+no layout oficial.
+
+Exportação **somente em PDF**, com a opção de gerar **um PDF por colaborador**
+ou **todos juntos num único PDF** (marcando *"Juntar num único PDF"*). Há ainda
+**Imprimir** como alternativa. O upload roda na página (e não no painel lateral)
+porque seletores de pasta no *side panel* são instáveis.
 
 Mapeamento dos valores (evento **S-5002 / evtIrrfBenef**), em `informe-core.js`:
 

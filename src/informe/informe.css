@@ -87,6 +87,62 @@ body {
   display: none;
 }
 
+.chk {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #333;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.chk input { width: auto; min-width: 0; }
+
+.upload {
+  max-width: 640px;
+  margin: 60px auto;
+  background: #fff;
+  border: 1px solid var(--cinza-claro);
+  border-radius: 12px;
+  padding: 32px;
+  text-align: center;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.06);
+}
+.upload h1 {
+  color: var(--azul2);
+  font-size: 22px;
+  margin: 0 0 10px;
+}
+.upload p {
+  color: #444;
+  line-height: 1.5;
+  font-size: 14px;
+}
+.botao-arquivo {
+  display: inline-block;
+  margin-top: 14px;
+  background: var(--azul);
+  color: #fff;
+  font-weight: 600;
+  padding: 12px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.botao-arquivo:hover { background: #0c326f; }
+.status {
+  margin-top: 14px;
+  color: var(--cinza);
+  font-size: 13px;
+  min-height: 18px;
+}
+
+#offscreen {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 980px;
+}
+
 .preview {
   display: flex;
   justify-content: center;

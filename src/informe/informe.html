@@ -8,7 +8,8 @@
     <link rel="stylesheet" href="informe.css" />
   </head>
   <body>
-    <div id="toolbar" class="toolbar">
+    <!-- Barra de ferramentas (aparece após carregar os XMLs) -->
+    <div id="toolbar" class="toolbar oculto">
       <div class="grp">
         <label>Razão Social
           <input id="razao" type="text" placeholder="Nome da empresa (fonte pagadora)" />
@@ -17,21 +18,40 @@
           <input id="cnpj" type="text" placeholder="00.000.000/0000-00" />
         </label>
       </div>
-      <div class="grp">
-        <label>Pessoa
+      <div class="grp" id="grpPessoa">
+        <label>Colaborador
           <select id="pessoa"></select>
         </label>
       </div>
       <div class="grp acoes">
-        <button id="btnPdf" class="primario">Baixar PDF</button>
-        <button id="btnPng">Baixar PNG</button>
+        <button id="btnPdf" class="primario">Baixar PDF (atual)</button>
+        <button id="btnTodos">Baixar todos</button>
+        <label class="chk" id="lblJuntar">
+          <input type="checkbox" id="juntar" /> Juntar num único PDF
+        </label>
         <button id="btnPrint">Imprimir</button>
-        <button id="btnTodos">Baixar todos (PDF)</button>
+        <button id="btnTrocar" class="link">Trocar pasta</button>
       </div>
       <div id="aviso" class="aviso"></div>
     </div>
 
+    <!-- Upload da pasta -->
+    <div id="upload" class="upload">
+      <h1>Gerar Informe de Rendimentos</h1>
+      <p>
+        Selecione a pasta <b>IRRF eSocial</b> (todos os colaboradores) ou a pasta
+        de um colaborador específico. Os XMLs são lidos <b>localmente</b>, no seu
+        navegador — nada é enviado para fora.
+      </p>
+      <label class="botao-arquivo">
+        Selecionar pasta de XMLs
+        <input type="file" id="pasta" webkitdirectory directory multiple hidden />
+      </label>
+      <div id="statusUpload" class="status"></div>
+    </div>
+
     <div id="preview" class="preview"></div>
+    <div id="offscreen" aria-hidden="true"></div>
 
     <script src="/src/common/namespace.js"></script>
     <script src="/src/informe/informe-core.js"></script>

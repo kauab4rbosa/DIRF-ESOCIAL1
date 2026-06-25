@@ -84,24 +84,18 @@
 
     <!-- ============== Gerador de Informe de Rendimentos ============== -->
     <section id="gerador" class="cartao">
-      <h2 class="titulo-sec">Gerar Informe de Rendimentos</h2>
+      <h2 class="titulo-sec">Informe de Rendimentos</h2>
       <p class="dica">
-        Selecione a pasta <b>IRRF eSocial</b> (todos os colaboradores) ou a
-        pasta de uma pessoa. Os XMLs são lidos localmente, sem upload.
+        Gere os informes (PDF) a partir dos XMLs baixados — individual por
+        colaborador ou todos num único PDF.
       </p>
-      <label class="campo">
-        <span>Pasta de XMLs</span>
-        <input type="file" id="pastaInforme" webkitdirectory directory multiple />
-      </label>
-      <small id="resumoInforme" class="dica"></small>
-      <button id="gerarInforme" class="primario">Gerar informes</button>
+      <button id="abrirGerador" class="primario">Abrir gerador de informes</button>
     </section>
 
     <script src="../common/namespace.js"></script>
     <script src="../common/constants.js"></script>
     <script src="../common/cpf.js"></script>
     <script src="../common/competencia.js"></script>
-    <script src="../informe/informe-core.js"></script>
     <script src="panel.js"></script>
   </body>
 </html>
