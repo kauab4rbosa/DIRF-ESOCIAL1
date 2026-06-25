@@ -171,16 +171,28 @@
     let pensao13 = 0;
     const pensaoPorCpf = {}; // mensal, por beneficiario
     const pensao13PorCpf = {}; // 13o, por beneficiario
+    const cpfsPensao = new Set(); // quem recebe pensao (qualquer tpRend)
     for (const p of acharTodos(complem, 'penAlim')) {
       const tpRend = txt(p, 'tpRend');
       const cpfDep = txt(p, 'cpfDep');
       const val = nmero(p, 'vlrDedPenAlim');
+      cpfsPensao.add(cpfDep);
       if (tpRend === '12') {
         pensao13 += val;
         pensao13PorCpf[cpfDep] = (pensao13PorCpf[cpfDep] || 0) + val;
       } else {
         pensaoMensal += val;
         pensaoPorCpf[cpfDep] = (pensaoPorCpf[cpfDep] || 0) + val;
+      }
+    }
+
+    // Deducao de dependentes do 13o (tpRend=12). Nao se deduz dependente E
+    // pensao para o mesmo CPF -> exclui dependentes que tambem sao
+    // beneficiarios de pensao (evita dupla deducao na base do 13o).
+    let dep13 = 0;
+    for (const dd of acharTodos(complem, 'dedDepen')) {
+      if (txt(dd, 'tpRend') === '12' && !cpfsPensao.has(txt(dd, 'cpfDep'))) {
+        dep13 += nmero(dd, 'vlrDedDep');
       }
     }
 
@@ -199,8 +211,9 @@
       })),
     }));
 
-    // 13o liquido (como no sistema de folha): bruto - INSS - pensao - IRRF.
-    const base13 = v.rendTrib13 - v.prevOficial13 - pensao13 - v.irrf13;
+    // 13o liquido (como no sistema de folha):
+    //   bruto - INSS - pensao - deducao de dependente (valida) - IRRF.
+    const base13 = v.rendTrib13 - v.prevOficial13 - pensao13 - dep13 - v.irrf13;
 
     return {
       cpf,
