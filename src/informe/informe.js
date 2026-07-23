@@ -1,14 +1,18 @@
 /*
  * informe.js — página do Informe de Rendimentos.
- * Upload da pasta -> parse dos XMLs (S-5002) -> preview -> exportação.
+ * Upload da pasta -> parse dos XMLs (S-5002) -> prévia (PDF) -> download.
  *
- * "Baixar PDF": junta todos os informes da tela num único PDF (uma página
- * por colaborador). Marcando "Quebrar por empregado", baixa PDFs separados
- * dentro de um .zip.
+ * A prévia exibida na tela É o próprio PDF vetorial (renderizado num
+ * <iframe>), gerado por informe-pdf.js. Logo o que aparece na tela é
+ * exatamente o arquivo baixado — mesmo layout, fontes e diagramação, com
+ * texto selecionável (não é imagem).
  *
- * Razão Social e CNPJ completo da empresa são preenchidos automaticamente
- * (CNPJ matriz derivado da raiz + consulta BrasilAPI), assim como a razão
- * social das operadoras de plano de saúde. Todos os campos são editáveis.
+ * "Baixar PDF": junta todos os colaboradores num único PDF (uma página por
+ * colaborador). Marcando "Quebrar por empregado", baixa PDFs separados num
+ * .zip.
+ *
+ * Razão Social + CNPJ da empresa e a razão social das operadoras de plano
+ * de saúde são preenchidos automaticamente (editáveis na barra superior).
  */
 (function () {
   const NS = self.IRRF;
@@ -17,6 +21,8 @@
 
   let modelos = [];
   let idx = 0;
+  let urlVisor = null; // blob URL atual da prévia (revogar ao trocar)
+  let reRenderTimer = null;
 
   const rootOf = (m) =>
     String((m.empregador && m.empregador.nrInsc) || '').replace(/\D/g, '').padStart(8, '0').slice(0, 8);
@@ -131,6 +137,7 @@
           for (const m of modelos) {
             if (m.planos && m.planos[c] && !m.planos[c].razao) m.planos[c].razao = razao;
           }
+          montarOperadoras();
           render();
         }
       } catch (_) {}
@@ -141,6 +148,7 @@
   function mostrarApp() {
     $('upload').classList.add('oculto');
     $('toolbar').classList.remove('oculto');
+    $('preview').classList.remove('oculto');
     montarPessoas();
     sincronizarToolbar();
     render();
@@ -148,7 +156,8 @@
 
   function mostrarUpload() {
     $('toolbar').classList.add('oculto');
-    $('preview').innerHTML = '';
+    $('preview').classList.add('oculto');
+    limparVisor();
     $('upload').classList.remove('oculto');
     $('pasta').value = '';
     $('statusUpload').textContent = '';
@@ -165,52 +174,77 @@
       sel.appendChild(o);
     });
     const varias = modelos.length > 1;
-    $('grpPessoa').style.display = varias ? '' : 'none';
+    $('grpPessoa').style.display = '';
+    $('lblColab').style.display = varias ? '' : 'none';
     $('lblQuebra').style.display = varias ? '' : 'none';
+    sel.value = String(idx);
+  }
+
+  function montarOperadoras() {
+    const box = $('grpOperadoras');
+    box.innerHTML = '';
+    const m = modelos[idx];
+    const cnpjs = m && m.planos ? Object.keys(m.planos) : [];
+    if (!cnpjs.length) {
+      box.style.display = 'none';
+      return;
+    }
+    box.style.display = '';
+    for (const cnpj of cnpjs) {
+      const lbl = document.createElement('label');
+      lbl.textContent = `Operadora ${NS.informe.fmt.cnpj(cnpj)}`;
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.placeholder = 'Razão social da operadora';
+      inp.value = m.planos[cnpj].razao || '';
+      inp.addEventListener('input', () => {
+        const txt = inp.value.trim();
+        for (const mm of modelos) if (mm.planos && mm.planos[cnpj]) mm.planos[cnpj].razao = txt;
+        agendarRender();
+      });
+      lbl.appendChild(inp);
+      box.appendChild(lbl);
+    }
   }
 
   function sincronizarToolbar() {
     const m = modelos[idx] || {};
     $('razao').value = m.razaoSocial || '';
     $('cnpj').value = m.cnpjFonte || '';
+    $('nome').value = m.nome || '';
+    montarOperadoras();
+  }
+
+  // ---------------- prévia (PDF no iframe) ----------------
+  function limparVisor() {
+    if (urlVisor) {
+      URL.revokeObjectURL(urlVisor);
+      urlVisor = null;
+    }
+    $('visor').removeAttribute('src');
   }
 
   function render() {
     const m = modelos[idx];
     if (!m) return;
-    $('preview').innerHTML = NS.informeLayout.buildHtml(m);
-
-    const elNome = document.querySelector('#preview [data-edit="nome"]');
-    if (elNome) {
-      elNome.setAttribute('contenteditable', 'true');
-      elNome.addEventListener('input', () => {
-        m.nome = elNome.textContent.trim();
-        const opt = $('pessoa').options[idx];
-        if (opt) opt.textContent = `${m.nome || NS.informe.fmt.cpf(m.cpf)} — ${m.ano}`;
-      });
+    try {
+      const pdf = NS.informePdf.gerarUm(m);
+      const nova = URL.createObjectURL(new Blob([pdf], { type: 'application/pdf' }));
+      // #toolbar=0 esconde a barra do leitor de PDF na prévia
+      $('visor').src = nova + '#toolbar=0&navpanes=0&view=FitH';
+      if (urlVisor) URL.revokeObjectURL(urlVisor);
+      urlVisor = nova;
+    } catch (err) {
+      aviso('Falha ao gerar a prévia: ' + (err && err.message ? err.message : err));
     }
-    // operadoras editáveis
-    document.querySelectorAll('#preview [data-edit="oper"]').forEach((el) => {
-      el.setAttribute('contenteditable', 'true');
-      el.addEventListener('input', () => {
-        const cnpj = el.getAttribute('data-cnpj');
-        const txt = el.textContent.trim();
-        for (const mm of modelos) if (mm.planos && mm.planos[cnpj]) mm.planos[cnpj].razao = txt;
-      });
-    });
+  }
+
+  function agendarRender() {
+    clearTimeout(reRenderTimer);
+    reRenderTimer = setTimeout(render, 220);
   }
 
   // ---------------- exportação ----------------
-  async function paginasDe(model) {
-    const host = $('offscreen');
-    host.innerHTML = NS.informeLayout.buildHtml(model);
-    const el = host.querySelector('.inf');
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-    const paginas = await NS.informeExport.elementoParaPaginas(el, 2);
-    host.innerHTML = '';
-    return paginas;
-  }
-
   function aviso(txt) {
     $('aviso').textContent = txt || '';
   }
@@ -219,33 +253,27 @@
     aviso('');
     document.body.style.cursor = 'progress';
     try {
-      // um único colaborador -> um PDF
       if (modelos.length === 1) {
-        NS.informeExport.baixarPdf(await paginasDe(modelos[0]), nomeArquivo(modelos[0]));
+        const pdf = NS.informePdf.gerarUm(modelos[0]);
+        NS.informePdf.baixarBlob(new Blob([pdf], { type: 'application/pdf' }), NS.informePdf.sanitizarNome(nomeArquivo(modelos[0])) + '.pdf');
         return;
       }
 
-      const quebrar = $('quebra').checked;
-      if (quebrar) {
+      if ($('quebra').checked) {
         // PDFs separados, num .zip
         const arquivos = [];
         for (let i = 0; i < modelos.length; i++) {
           aviso(`Gerando ${i + 1}/${modelos.length}…`);
-          const pdf = NS.informeExport.montarPdf(await paginasDe(modelos[i]));
-          arquivos.push({ nome: NS.informeExport.sanitizarNome(nomeArquivo(modelos[i])) + '.pdf', dados: pdf });
-          await sleep(15);
+          const pdf = NS.informePdf.gerarUm(modelos[i]);
+          arquivos.push({ nome: NS.informePdf.sanitizarNome(nomeArquivo(modelos[i])) + '.pdf', dados: pdf });
+          await sleep(5);
         }
         const zip = NS.zip.criarZip(arquivos);
-        NS.informeExport.baixarBlob(new Blob([zip], { type: 'application/zip' }), `Informes ${anosLabel()}.zip`);
+        NS.informePdf.baixarBlob(new Blob([zip], { type: 'application/zip' }), `Informes ${anosLabel()}.zip`);
       } else {
-        // tudo junto num único PDF (uma ou mais páginas por colaborador)
-        let paginas = [];
-        for (let i = 0; i < modelos.length; i++) {
-          aviso(`Gerando ${i + 1}/${modelos.length}…`);
-          paginas = paginas.concat(await paginasDe(modelos[i]));
-          await sleep(15);
-        }
-        NS.informeExport.baixarPdf(paginas, `Informes ${anosLabel()}`);
+        // tudo junto num único PDF (uma página por colaborador)
+        const pdf = NS.informePdf.gerarVarios(modelos);
+        NS.informePdf.baixarBlob(new Blob([pdf], { type: 'application/pdf' }), `Informes ${anosLabel()}.pdf`);
       }
       aviso('');
     } catch (err) {
@@ -261,12 +289,20 @@
     $('razao').addEventListener('input', (e) => {
       const r = rootOf(modelos[idx]);
       for (const m of modelos) if (rootOf(m) === r) m.razaoSocial = e.target.value;
-      render();
+      agendarRender();
     });
     $('cnpj').addEventListener('input', (e) => {
       const r = rootOf(modelos[idx]);
       for (const m of modelos) if (rootOf(m) === r) m.cnpjFonte = e.target.value;
-      render();
+      agendarRender();
+    });
+    $('nome').addEventListener('input', (e) => {
+      const m = modelos[idx];
+      if (!m) return;
+      m.nome = e.target.value;
+      const opt = $('pessoa').options[idx];
+      if (opt) opt.textContent = `${m.nome || NS.informe.fmt.cpf(m.cpf)} — ${m.ano}`;
+      agendarRender();
     });
     $('pessoa').addEventListener('change', (e) => {
       idx = Number(e.target.value) || 0;

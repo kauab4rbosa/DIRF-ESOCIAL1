@@ -13,6 +13,7 @@ body {
   font-size: 14px;
   color: #1b1b1b;
 }
+.oculto { display: none !important; }
 
 .toolbar {
   position: sticky;
@@ -136,33 +137,25 @@ body {
   min-height: 18px;
 }
 
-#offscreen {
-  position: fixed;
-  left: -10000px;
-  top: 0;
-  width: 980px;
-}
-
+/* prévia = o próprio PDF vetorial, renderizado num iframe */
 .preview {
-  display: flex;
-  justify-content: center;
-  padding: 24px 12px 60px;
+  padding: 20px 12px 40px;
+  height: calc(100vh - 120px);
 }
-.preview .inf {
+.visor {
+  display: block;
+  width: 100%;
+  max-width: 900px;
+  height: 100%;
+  margin: 0 auto;
+  border: 1px solid var(--cinza-claro);
+  border-radius: 8px;
+  background: #fff;
   box-shadow: 0 2px 14px rgba(0, 0, 0, 0.12);
 }
-[data-edit="nome"] {
-  outline: 1px dashed transparent;
-}
-[data-edit="nome"]:hover,
-[data-edit="nome"]:focus {
-  outline: 1px dashed var(--azul2);
-  cursor: text;
-}
 
-@media print {
-  .toolbar { display: none; }
-  body { background: #fff; }
-  .preview { padding: 0; }
-  .preview .inf { box-shadow: none; }
+#grpOperadoras {
+  flex-wrap: wrap;
+  max-width: 520px;
 }
+#grpOperadoras label { min-width: 220px; }

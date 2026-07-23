@@ -132,7 +132,7 @@
     const v = {
       rendTrib: 0, prevOficial: 0, irrf: 0,
       rendTrib13: 0, prevOficial13: 0, irrf13: 0,
-      p65: 0, p65_13: 0, diarias: 0, moleGrave: 0, indeniz: 0, abonoPec: 0, juros: 0, outros: 0,
+      p65: 0, p65_13: 0, diarias: 0, moleGrave: 0, indeniz: 0, juros: 0, outros: 0,
     };
     for (const c of consolids) {
       const cr = txt(c, 'CRMen');
@@ -148,9 +148,11 @@
       v.diarias += nmero(c, 'vlrDiarias') + nmero(c, 'vlrAjudaCusto');
       v.moleGrave += nmero(c, 'vlrRendMoleGrave') + nmero(c, 'vlrRendMoleGrave13');
       v.indeniz += nmero(c, 'vlrIndResContrato');
-      v.abonoPec += nmero(c, 'vlrAbonoPec');
       v.juros += nmero(c, 'vlrJurosMora');
+      // "Outros" isentos: abono pecuniario de ferias entra aqui (o layout
+      // de referencia nao tem linha propria de abono).
       v.outros +=
+        nmero(c, 'vlrAbonoPec') +
         nmero(c, 'vlrIsenOutros') +
         nmero(c, 'vlrAuxMoradia') +
         nmero(c, 'vlrBolsaMedico') +
@@ -238,7 +240,6 @@
           diarias: v.diarias,
           moleGrave: v.moleGrave,
           indeniz: v.indeniz,
-          abonoPec: v.abonoPec,
           juros: v.juros,
           outros: v.outros,
         },
@@ -259,7 +260,7 @@
   function mesVazio() {
     return {
       rendTrib: 0, prevOficial: 0, prevCompl: 0, pensao: 0, irrf: 0,
-      isen: { p65: 0, p65_13: 0, diarias: 0, moleGrave: 0, indeniz: 0, abonoPec: 0, juros: 0, outros: 0 },
+      isen: { p65: 0, p65_13: 0, diarias: 0, moleGrave: 0, indeniz: 0, juros: 0, outros: 0 },
       base13: 0, irrf13: 0,
     };
   }

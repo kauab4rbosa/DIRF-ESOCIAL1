@@ -19,10 +19,14 @@
         </label>
       </div>
       <div class="grp" id="grpPessoa">
-        <label>Colaborador
+        <label id="lblColab">Colaborador
           <select id="pessoa"></select>
         </label>
+        <label>Nome (editar)
+          <input id="nome" type="text" placeholder="Nome do colaborador" />
+        </label>
       </div>
+      <div class="grp" id="grpOperadoras"></div>
       <div class="grp acoes">
         <button id="btnPdf" class="primario">Baixar PDF</button>
         <label class="chk" id="lblQuebra">
@@ -48,14 +52,13 @@
       <div id="statusUpload" class="status"></div>
     </div>
 
-    <div id="preview" class="preview"></div>
-    <div id="offscreen" aria-hidden="true"></div>
+    <div id="preview" class="preview">
+      <iframe id="visor" class="visor" title="Prévia do informe (PDF)"></iframe>
+    </div>
 
     <script src="/src/common/namespace.js"></script>
-    <script src="/src/informe/vendor/html2canvas.min.js"></script>
     <script src="/src/informe/informe-core.js"></script>
-    <script src="/src/informe/informe-layout.js"></script>
-    <script src="/src/informe/informe-export.js"></script>
+    <script src="/src/informe/informe-pdf.js"></script>
     <script src="/src/informe/zip.js"></script>
     <script src="/src/informe/lookup.js"></script>
     <script src="informe.js"></script>

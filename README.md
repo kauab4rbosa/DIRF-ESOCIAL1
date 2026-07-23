@@ -99,9 +99,8 @@ src/
 │   └── content-script.js      recebe ordens e devolve os XMLs
 ├── informe/                   gerador de Informe de Rendimentos
 │   ├── informe-core.js        parser do S-5002 + modelo + formatação
-│   ├── informe-layout.js      HTML do informe (layout oficial)
-│   ├── informe-export.js      exportação PNG/PDF (sem dependências)
-│   ├── informe.html/.css/.js  página de preview e download
+│   ├── informe-pdf.js         PDF vetorial (texto selecionável, sem libs)
+│   ├── informe.html/.css/.js  página de prévia (PDF no iframe) e download
 └── sidepanel/                 interface (UI)
     ├── panel.html
     ├── panel.css
@@ -179,8 +178,10 @@ No painel, clique em **"Abrir gerador de informes"** — abre uma página dedica
 (aba normal). Nela, selecione a pasta `IRRF eSocial` inteira (todos os
 colaboradores) ou a pasta de um colaborador. Os XMLs são lidos **localmente**
 (nada sai do navegador), agrupados por pessoa e ano, e a página mostra o informe
-no layout oficial. O PDF é gerado rasterizando o **mesmo** elemento exibido, de
-modo que o arquivo é idêntico ao preview.
+no layout oficial. A **prévia exibida na tela é o próprio PDF vetorial** (aberto
+num `iframe`), gerado por `informe-pdf.js` — logo o arquivo baixado é idêntico ao
+que aparece na tela, com **texto selecionável** (não é imagem). O PDF usa as
+fontes padrão Helvetica/Helvetica-Bold (WinAnsi), sem bibliotecas externas.
 
 Exportação **somente em PDF**:
 
