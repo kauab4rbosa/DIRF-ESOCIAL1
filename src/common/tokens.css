@@ -1,103 +1,114 @@
 /*
  * tokens.css — sistema de design compartilhado (side panel + informe).
  * ------------------------------------------------------------------
- * Fonte única de verdade para cores, espaçamento, raios, sombras,
- * tipografia, foco e movimento. Suporta tema claro e escuro
- * (prefers-color-scheme) e respeita prefers-reduced-motion.
+ * Baseado no visual do site jurisconsulto.com.br: fundo off-white,
+ * azul #009AE0 como cor de ação/realce, texto quase-preto, bordas
+ * suaves, cantos arredondados, sombras sutis; tipografia General Sans
+ * (texto/títulos) + JetBrains Mono (números/tags). Suporta tema claro
+ * e escuro (prefers-color-scheme) e respeita prefers-reduced-motion.
  *
- * Ícones: usamos SVG (nunca emoji) — inline no HTML para botões e via
- * máscara CSS (currentColor) para estados controlados por JS.
+ * Ícones: SVG (nunca emoji) — inline (.i) ou via máscara CSS (.ico).
  */
 :root {
-  /* superfícies / texto */
-  --bg: #eaeef3;
+  /* superfícies / texto (paleta "ink" do site) */
+  --bg: #fbfbfa;
   --surface: #ffffff;
-  --surface-2: #f4f7fa;
-  --surface-3: #eaeef2;
-  --text: #16202c;
-  --text-muted: #56606c;
-  --text-subtle: #838d99;
-  --border: #e1e6ec;
-  --border-strong: #ccd3db;
+  --surface-2: #f3f5f8;
+  --surface-3: #e7eaf0;
+  --text: #0a0c10;
+  --text-muted: #5a6272;
+  --text-subtle: #8b95a7;
+  --border: #ececec;
+  --border-strong: #d8dbe1;
 
   /* marca / ações */
-  --primary: #1351b4;          /* azul gov.br */
-  --primary-hover: #0d3f8f;
-  --primary-weak: #e9f0fb;
+  --primary: #009ae0;          /* azul Jurisconsulto */
+  --primary-hover: #0078b3;    /* blue-ink */
+  --primary-ink: #0078b3;      /* texto azul sobre fundo azul-suave */
+  --primary-weak: #e8f6fd;     /* blue-soft */
   --on-primary: #ffffff;
-  --accent: #1f8fc4;           /* teal informativo (combina com o PDF) */
-  --accent-weak: #e4f2fa;
+  --ink: #0a0c10;              /* preto do site (ações neutras fortes) */
+  --accent: #009ae0;
 
   /* semânticas */
-  --success: #157f2b;
-  --success-weak: #dcf4e1;
-  --warning: #92600a;
-  --warning-weak: #fbeecd;
-  --danger: #cf3320;
-  --danger-weak: #fbe4e0;
+  --success: #1f7a3f;
+  --success-weak: #e8f7ef;
+  --warning: #9a6308;
+  --warning-weak: #fdf3e1;
+  --danger: #d92d20;
+  --danger-weak: #fde4e2;
 
-  /* foco */
-  --ring: rgba(19, 81, 180, 0.45);
+  /* foco / brilho */
+  --ring: rgba(0, 154, 224, 0.35);
+  --glow: 0 1px 0 rgba(0, 0, 0, 0.05), 0 6px 14px -4px rgba(0, 154, 224, 0.45);
 
-  /* raios */
+  /* raios (do site) */
   --r-sm: 8px;
   --r-md: 12px;
-  --r-lg: 16px;
+  --r-lg: 18px;
+  --r-xl: 28px;
+  --r-btn: 10px;
   --r-pill: 999px;
 
-  /* sombras */
-  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.05);
-  --shadow-md: 0 4px 14px rgba(16, 24, 40, 0.10);
-  --shadow-focus: 0 0 0 3px var(--ring);
+  /* sombras (do site) */
+  --shadow-sm: 0 1px 2px rgba(10, 12, 16, 0.04), 0 1px 1px rgba(10, 12, 16, 0.03);
+  --shadow-md: 0 4px 12px rgba(10, 12, 16, 0.06), 0 1px 2px rgba(10, 12, 16, 0.04);
+  --shadow-lg: 0 24px 60px -16px rgba(10, 12, 16, 0.18), 0 8px 20px -8px rgba(10, 12, 16, 0.08);
 
-  /* espaçamento (densidade padrão) */
+  /* espaçamento */
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px; --s8: 32px;
 
   /* tipografia */
-  --font: "Poppins", "Segoe UI", Roboto, system-ui, -apple-system, sans-serif;
-  --dur: 180ms;
+  --font: "General Sans", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-head: "General Sans", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --dur: 150ms;
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
 
   /* ícones SVG (outline, herdam a cor via máscara) */
-  --svg-check: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'><path d='M20 6 9 17l-5-5'/></svg>");
+  --svg-check: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M20 6 9 17l-5-5'/></svg>");
   --svg-dot: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><circle cx='12' cy='12' r='6'/></svg>");
   --svg-pause: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'><rect x='6' y='5' width='4' height='14' rx='1'/><rect x='14' y='5' width='4' height='14' rx='1'/></svg>");
-  --svg-x: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round'><path d='M18 6 6 18M6 6l12 12'/></svg>");
-  --svg-alert: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z'/><path d='M12 9v4M12 17h.01'/></svg>");
-  --svg-loader: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round'><path d='M21 12a9 9 0 1 1-6.2-8.5'/></svg>");
+  --svg-x: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round'><path d='M18 6 6 18M6 6l12 12'/></svg>");
+  --svg-alert: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z'/><path d='M12 9v4M12 17h.01'/></svg>");
+  --svg-loader: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'><path d='M21 12a9 9 0 1 1-6.2-8.5'/></svg>");
 
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0f141a;
-    --surface: #161d25;
-    --surface-2: #1d2731;
-    --surface-3: #26313d;
-    --text: #e8eef4;
-    --text-muted: #a0acb9;
-    --text-subtle: #6f7d8c;
-    --border: #29333e;
-    --border-strong: #3a4653;
+    /* derivado da seção escura (MCP) do site: #1a1a1c/#232323 + azul */
+    --bg: #161618;
+    --surface: #202022;
+    --surface-2: #2a2a2d;
+    --surface-3: #333338;
+    --text: #f4f5f7;
+    --text-muted: #aab0b8;
+    --text-subtle: #7e8791;
+    --border: #2e2e32;
+    --border-strong: #3d3d43;
 
-    --primary: #4a90e2;
-    --primary-hover: #63a2ee;
-    --primary-weak: #16273c;
-    --on-primary: #ffffff;
-    --accent: #46a9d8;
-    --accent-weak: #13293a;
+    --primary: #2bb7ee;
+    --primary-hover: #6dcaf0;
+    --primary-ink: #6dcaf0;
+    --primary-weak: #123246;
+    --on-primary: #06212e;
+    --ink: #f4f5f7;
+    --accent: #2bb7ee;
 
-    --success: #46cf6d;
-    --success-weak: #12301c;
+    --success: #2bcd6b;
+    --success-weak: #10301f;
     --warning: #e2b457;
     --warning-weak: #33280d;
-    --danger: #f0705c;
-    --danger-weak: #3a1a15;
+    --danger: #ff6b60;
+    --danger-weak: #3a1a1a;
 
-    --ring: rgba(90, 160, 250, 0.5);
+    --ring: rgba(43, 183, 238, 0.5);
+    --glow: 0 6px 16px -6px rgba(43, 183, 238, 0.5);
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 24px 60px -16px rgba(0, 0, 0, 0.6);
 
     color-scheme: dark;
   }
@@ -109,15 +120,17 @@ body {
   font-family: var(--font);
   color: var(--text);
   background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "ss01";
 }
 
 /* ---------------- foco visível (teclado) ---------------- */
 :focus-visible {
   outline: none;
-  box-shadow: var(--shadow-focus);
+  box-shadow: 0 0 0 3px var(--ring);
   border-color: var(--primary) !important;
 }
-/* remove o foco só-mouse, mantendo teclado */
 :focus:not(:focus-visible) { outline: none; }
 
 /* ---------------- utilidades ---------------- */
@@ -151,7 +164,6 @@ body {
 .ico-alert  { --ic: var(--svg-alert); }
 .ico-loader { --ic: var(--svg-loader); }
 
-/* estado "carregando": gira */
 .spin { animation: ico-spin 0.8s linear infinite; }
 @keyframes ico-spin { to { transform: rotate(360deg); } }
 

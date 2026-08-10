@@ -91,8 +91,46 @@
     e.target.value = d;
   }
 
-  // ---- resumo dos CPFs ----
+  // ---- máscara padrão dos CPFs (000.000.000-00), aplicada ao digitar ----
+  function mascararLinhaCpf(linha) {
+    const d = String(linha || '').replace(/\D/g, '').slice(0, 11);
+    if (!d) return '';
+    let out = d.slice(0, 3);
+    if (d.length > 3) out += '.' + d.slice(3, 6);
+    if (d.length > 6) out += '.' + d.slice(6, 9);
+    if (d.length > 9) out += '-' + d.slice(9, 11);
+    return out;
+  }
+
+  // Reaplica a máscara em todas as linhas preservando a posição do cursor.
+  function reformatarCpfs() {
+    const ta = el.cpfs;
+    const pos = ta.selectionStart;
+    const antes = ta.value.slice(0, pos);
+    const digitosAntes = (antes.match(/\d/g) || []).length;
+    const quebrasAntes = (antes.match(/\n/g) || []).length;
+
+    const novo = ta.value.split('\n').map(mascararLinhaCpf).join('\n');
+    if (novo === ta.value) return;
+    ta.value = novo;
+
+    let d = 0, nl = 0, i = 0;
+    while (i < novo.length && (d < digitosAntes || nl < quebrasAntes)) {
+      const ch = novo[i];
+      if (ch === '\n') nl++;
+      else if (ch >= '0' && ch <= '9') d++;
+      i++;
+    }
+    ta.setSelectionRange(i, i);
+  }
+
+  // ---- resumo dos CPFs (só aparece quando há texto) ----
   function atualizarResumoCpfs() {
+    if (!el.cpfs.value.trim()) {
+      el.resumoCpfs.textContent = '';
+      el.resumoCpfs.classList.remove('alerta');
+      return;
+    }
     const { validos, invalidos } = NS.cpf.parseLista(el.cpfs.value);
     let txt = `${validos.length} CPF(s) válido(s)`;
     if (invalidos.length) {
@@ -236,7 +274,10 @@
   }
 
   // ---- eventos ----
-  el.cpfs.addEventListener('input', atualizarResumoCpfs);
+  el.cpfs.addEventListener('input', () => {
+    reformatarCpfs();
+    atualizarResumoCpfs();
+  });
   el.compInicial.addEventListener('input', formatarCompetencia);
   el.compFinal.addEventListener('input', formatarCompetencia);
   el.iniciar.addEventListener('click', iniciar);

@@ -81,7 +81,7 @@ build/bundler.
 ```
 manifest.json
 icons/                         ícones 16/48/128
-fonts/                         fonte Poppins (woff2) empacotada localmente
+fonts/                         General Sans + JetBrains Mono (woff2) empacotadas localmente
 src/
 ├── common/                    código compartilhado por todos os contextos
 │   ├── namespace.js           cria o namespace global
@@ -89,7 +89,7 @@ src/
 │   ├── cpf.js                 normaliza/valida/parseia CPFs
 │   ├── competencia.js         gera intervalos de competências
 │   ├── storage.js             persistência do estado (chrome.storage.local)
-│   └── tokens.css             design tokens (cores, foco, ícones) + tema claro/escuro
+│   └── tokens.css             design tokens (estilo jurisconsulto.com.br) + tema claro/escuro
 ├── background/                service worker (orquestração)
 │   ├── service-worker.js      ponto de entrada; roteia mensagens
 │   ├── orchestrator.js        máquina de estados / fila / recuperação
