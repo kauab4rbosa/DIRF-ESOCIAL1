@@ -5,17 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>IRRF eSocial</title>
     <link rel="stylesheet" href="/fonts/poppins.css" />
+    <link rel="stylesheet" href="../common/tokens.css" />
     <link rel="stylesheet" href="panel.css" />
   </head>
   <body>
     <header class="cabecalho">
-      <h1>IRRF eSocial</h1>
+      <div class="marca">
+        <span class="marca-logo" aria-hidden="true">
+          <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1V2l-2 1-2-1-2 1-2-1-2 1-2-1z" />
+            <path d="M9 7h6M9 11h6M9 15h4" />
+          </svg>
+        </span>
+        <h1>IRRF eSocial</h1>
+      </div>
       <span id="status" class="badge ocioso">ocioso</span>
     </header>
 
     <!-- ====================== Formulario ====================== -->
     <section id="formulario" class="cartao">
-      <div id="esocial" class="esocial-status off">verificando eSocial&hellip;</div>
+      <div id="esocial" class="esocial-status">verificando eSocial&hellip;</div>
 
       <div class="linha">
         <label class="campo">
@@ -52,7 +61,12 @@
         <small id="resumoCpfs" class="dica"></small>
       </label>
 
-      <button id="iniciar" class="primario">Iniciar</button>
+      <button id="iniciar" class="primario">
+        <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" />
+        </svg>
+        Iniciar download
+      </button>
     </section>
 
     <!-- ====================== Execucao ====================== -->
@@ -60,36 +74,96 @@
       <div class="barra"><div id="barraProgresso" class="barra-fill"></div></div>
 
       <div class="tiles">
-        <div class="tile"><strong id="tTotalCpfs">0</strong><small>CPFs</small></div>
-        <div class="tile"><strong id="tProgresso">0/0</strong><small>tarefas</small></div>
-        <div class="tile"><strong id="tXmls">0</strong><small>XMLs</small></div>
-        <div class="tile"><strong id="tEta">&mdash;</strong><small>restante</small></div>
+        <div class="tile">
+          <div class="tile-top">
+            <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.9" /><path d="M16 3.1a4 4 0 0 1 0 7.8" /></svg>
+            <small>CPFs</small>
+          </div>
+          <strong id="tTotalCpfs">0</strong>
+        </div>
+        <div class="tile">
+          <div class="tile-top">
+            <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 5 2 2 3-3" /><path d="m3 12 2 2 3-3" /><path d="m3 19 2 2 3-3" /><path d="M13 6h8M13 13h8M13 20h8" /></svg>
+            <small>tarefas</small>
+          </div>
+          <strong id="tProgresso">0/0</strong>
+        </div>
+        <div class="tile">
+          <div class="tile-top">
+            <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><path d="M14 3v6h6" /></svg>
+            <small>XMLs</small>
+          </div>
+          <strong id="tXmls">0</strong>
+        </div>
+        <div class="tile">
+          <div class="tile-top">
+            <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+            <small>restante</small>
+          </div>
+          <strong id="tEta">&mdash;</strong>
+        </div>
       </div>
 
       <dl class="atual">
-        <div><dt>Competência atual</dt><dd id="aCompetencia">&mdash;</dd></div>
-        <div><dt>CPF atual</dt><dd id="aCpf">&mdash;</dd></div>
-        <div><dt>Colaborador</dt><dd id="aColaborador">&mdash;</dd></div>
+        <div>
+          <dt>
+            <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M8 2v4M16 2v4M3 10h18" /></svg>
+            Competência atual
+          </dt>
+          <dd id="aCompetencia">&mdash;</dd>
+        </div>
+        <div>
+          <dt>
+            <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18" /></svg>
+            CPF atual
+          </dt>
+          <dd id="aCpf">&mdash;</dd>
+        </div>
+        <div>
+          <dt>
+            <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+            Colaborador
+          </dt>
+          <dd id="aColaborador">&mdash;</dd>
+        </div>
       </dl>
 
       <div class="controles">
-        <button id="pausar">Pausar</button>
-        <button id="retomar">Retomar</button>
-        <button id="cancelar" class="perigo">Cancelar</button>
+        <button id="pausar">
+          <svg class="i" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+          Pausar
+        </button>
+        <button id="retomar">
+          <svg class="i" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><path d="M7 4v16l13-8z" /></svg>
+          Retomar
+        </button>
+        <button id="cancelar" class="perigo">
+          <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+          Cancelar
+        </button>
       </div>
-      <button id="reiniciar" class="link reiniciar oculto">Nova execução</button>
+      <button id="reiniciar" class="link reiniciar oculto">
+        <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /></svg>
+        Nova execução
+      </button>
 
       <div id="erros" class="erros"></div>
     </section>
 
     <!-- ============== Gerador de Informe de Rendimentos ============== -->
     <section id="gerador" class="cartao">
-      <h2 class="titulo-sec">Informe de Rendimentos</h2>
+      <h2 class="titulo-sec">
+        <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /><path d="M9 13h6M9 17h4" /></svg>
+        Informe de Rendimentos
+      </h2>
       <p class="dica">
         Gere os informes (PDF) a partir dos XMLs baixados — individual por
         colaborador ou todos num único PDF.
       </p>
-      <button id="abrirGerador" class="primario">Abrir gerador de informes</button>
+      <button id="abrirGerador" class="primario">
+        <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6" /><path d="M10 14 21 3" /><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></svg>
+        Abrir gerador de informes
+      </button>
     </section>
 
     <script src="../common/namespace.js"></script>

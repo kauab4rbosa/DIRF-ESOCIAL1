@@ -283,9 +283,81 @@
     }
   }
 
+  // ---------------- arrastar e soltar (pasta/arquivos) ----------------
+  function coletarEntradas(entry, files) {
+    return new Promise((resolve) => {
+      if (entry.isFile) {
+        entry.file(
+          (file) => {
+            try {
+              Object.defineProperty(file, 'webkitRelativePath', {
+                value: String(entry.fullPath || '').replace(/^\//, ''),
+              });
+            } catch (_) {}
+            files.push(file);
+            resolve();
+          },
+          () => resolve()
+        );
+      } else if (entry.isDirectory) {
+        const reader = entry.createReader();
+        const acumulado = [];
+        const lerLote = () =>
+          reader.readEntries((ents) => {
+            if (!ents.length) {
+              Promise.all(acumulado.map((e) => coletarEntradas(e, files))).then(resolve);
+            } else {
+              acumulado.push(...ents);
+              lerLote(); // readEntries pode devolver em lotes
+            }
+          }, () => resolve());
+        lerLote();
+      } else {
+        resolve();
+      }
+    });
+  }
+
+  async function arquivosDoDrop(dt) {
+    const items = Array.from((dt && dt.items) || []);
+    const entries = items
+      .map((it) => (it.webkitGetAsEntry ? it.webkitGetAsEntry() : null))
+      .filter(Boolean);
+    if (entries.length) {
+      const files = [];
+      await Promise.all(entries.map((e) => coletarEntradas(e, files)));
+      return files;
+    }
+    return Array.from((dt && dt.files) || []);
+  }
+
+  function wireDropzone() {
+    const dz = $('dropzone');
+    if (!dz) return;
+    ['dragenter', 'dragover'].forEach((ev) =>
+      dz.addEventListener(ev, (e) => {
+        e.preventDefault();
+        dz.classList.add('dragover');
+      })
+    );
+    ['dragleave', 'dragend', 'drop'].forEach((ev) =>
+      dz.addEventListener(ev, (e) => {
+        e.preventDefault();
+        dz.classList.remove('dragover');
+      })
+    );
+    dz.addEventListener('drop', async (e) => {
+      $('statusUpload').textContent = 'Lendo arquivos…';
+      const files = await arquivosDoDrop(e.dataTransfer);
+      if (files.length) processarPasta(files);
+      else $('statusUpload').textContent = 'Nenhum arquivo reconhecido na seleção.';
+    });
+  }
+
   // ---------------- eventos ----------------
   function wire() {
     $('pasta').addEventListener('change', (e) => processarPasta(e.target.files));
+    wireDropzone();
     $('razao').addEventListener('input', (e) => {
       const r = rootOf(modelos[idx]);
       for (const m of modelos) if (rootOf(m) === r) m.razaoSocial = e.target.value;

@@ -1,285 +1,312 @@
-/* panel.css — estilo do side panel da extensao IRRF eSocial. */
-:root {
-  --azul: #1351b4;
-  --azul-escuro: #0c326f;
-  --verde: #168821;
-  --vermelho: #e52207;
-  --cinza: #6b7280;
-  --cinza-claro: #e5e7eb;
-  --fundo: #f6f7f9;
-  --texto: #1b1b1b;
-  --raio: 10px;
-}
-
-* {
-  box-sizing: border-box;
-}
-
+/*
+ * panel.css — side panel da extensão IRRF eSocial.
+ * Consome os tokens de /src/common/tokens.css (cores, foco, ícones, motion).
+ */
 body {
   margin: 0;
-  font-family: "Poppins", "Segoe UI", Roboto, system-ui, sans-serif;
   font-size: 14px;
-  color: var(--texto);
-  background: var(--fundo);
-  padding: 12px;
+  padding: var(--s3);
+  line-height: 1.45;
 }
 
+/* ---------------- cabeçalho ---------------- */
 .cabecalho {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  gap: var(--s2);
+  margin-bottom: var(--s4);
 }
+.marca {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-width: 0;
+}
+.marca-logo {
+  width: 30px; height: 30px;
+  flex: none;
+  border-radius: 9px;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  color: #fff;
+  display: grid;
+  place-items: center;
+  box-shadow: var(--shadow-sm);
+}
+.marca-logo .i { width: 18px; height: 18px; }
 .cabecalho h1 {
-  font-size: 18px;
+  font-size: 16px;
+  font-weight: 700;
   margin: 0;
-  color: var(--azul-escuro);
+  color: var(--text);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
 }
 
+/* ---------------- badge de status ---------------- */
 .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 3px 9px;
-  border-radius: 999px;
-  background: var(--cinza-claro);
-  color: var(--cinza);
+  text-transform: capitalize;
+  letter-spacing: 0.01em;
+  padding: 4px 10px 4px 8px;
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+  color: var(--text-muted);
   font-weight: 600;
+  white-space: nowrap;
+  --ic: var(--svg-dot);
 }
-.badge.executando { background: #dbeafe; color: var(--azul); }
-.badge.pausado { background: #fef3c7; color: #92400e; }
-.badge.concluido { background: #dcfce7; color: var(--verde); }
-.badge.cancelado, .badge.erro { background: #fee2e2; color: var(--vermelho); }
+.badge::before {
+  content: "";
+  width: 12px; height: 12px; flex: none;
+  background: currentColor;
+  -webkit-mask: var(--ic) center / contain no-repeat;
+  mask: var(--ic) center / contain no-repeat;
+}
+.badge.executando { background: var(--primary-weak); color: var(--primary); --ic: var(--svg-loader); }
+.badge.executando::before { animation: ico-spin 0.8s linear infinite; }
+.badge.pausado { background: var(--warning-weak); color: var(--warning); --ic: var(--svg-pause); }
+.badge.concluido { background: var(--success-weak); color: var(--success); --ic: var(--svg-check); }
+.badge.cancelado, .badge.erro { background: var(--danger-weak); color: var(--danger); --ic: var(--svg-alert); }
 
+/* ---------------- cartões ---------------- */
 .cartao {
-  background: #fff;
-  border: 1px solid var(--cinza-claro);
-  border-radius: var(--raio);
-  padding: 14px;
-  margin-bottom: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--s4);
+  margin-bottom: var(--s3);
+  box-shadow: var(--shadow-sm);
 }
 
-.campo {
-  display: block;
-  margin-bottom: 12px;
-}
+/* ---------------- campos ---------------- */
+.campo { display: block; margin-bottom: var(--s3); }
+.campo:last-child { margin-bottom: 0; }
 .campo > span {
   display: block;
   font-weight: 600;
-  margin-bottom: 4px;
-  font-size: 13px;
+  margin-bottom: 5px;
+  font-size: 12.5px;
+  color: var(--text);
 }
 
-input,
-select,
-textarea {
+input, select, textarea {
   width: 100%;
-  padding: 8px 10px;
-  border: 1px solid var(--cinza-claro);
-  border-radius: 8px;
+  padding: 9px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
   font: inherit;
-  background: #fff;
+  color: var(--text);
+  background: var(--surface);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
-textarea {
-  resize: vertical;
+input::placeholder, textarea::placeholder { color: var(--text-subtle); }
+textarea { resize: vertical; min-height: 84px; }
+#cpfs {
+  font-family: "SF Mono", "Roboto Mono", ui-monospace, Menlo, Consolas, monospace;
+  font-size: 13px;
+  letter-spacing: 0.02em;
 }
-input:focus,
-select:focus,
-textarea:focus {
-  outline: 2px solid var(--azul);
-  outline-offset: 0;
-  border-color: var(--azul);
-}
+input:hover, select:hover, textarea:hover { border-color: var(--primary); }
 
-.linha {
-  display: flex;
-  gap: 10px;
-}
-.linha .campo {
-  flex: 1;
-}
-.linha-aba {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
+.linha { display: flex; gap: var(--s3); }
+.linha .campo { flex: 1; }
 
 .dica {
-  display: block;
-  color: var(--cinza);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted);
   font-size: 12px;
-  margin-top: 4px;
+  margin-top: 6px;
 }
-.dica.alerta {
-  color: var(--vermelho);
-}
+.dica.alerta { color: var(--danger); font-weight: 500; }
 
-/* indicador de deteccao automatica do eSocial */
+/* ---------------- indicador do eSocial ---------------- */
 .esocial-status {
-  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
   font-weight: 500;
-  padding: 8px 10px;
-  border-radius: 8px;
-  margin-bottom: 14px;
+  padding: 9px 11px;
+  border-radius: var(--r-sm);
+  margin-bottom: var(--s4);
+  border: 1px solid transparent;
+  --ic: var(--svg-loader);
 }
-.esocial-status.ok {
-  background: #dcfce7;
-  color: var(--verde);
+.esocial-status::before {
+  content: "";
+  width: 15px; height: 15px; flex: none;
+  background: currentColor;
+  -webkit-mask: var(--ic) center / contain no-repeat;
+  mask: var(--ic) center / contain no-repeat;
 }
-.esocial-status.off {
-  background: #fef3c7;
-  color: #92400e;
-}
+.esocial-status.off { background: var(--warning-weak); color: var(--warning); border-color: color-mix(in srgb, var(--warning) 22%, transparent); --ic: var(--svg-alert); }
+.esocial-status.ok { background: var(--success-weak); color: var(--success); border-color: color-mix(in srgb, var(--success) 22%, transparent); --ic: var(--svg-check); }
+/* estado "verificando" (classe base, sem ok/off): spinner */
+.esocial-status:not(.ok):not(.off) { background: var(--surface-2); color: var(--text-muted); }
+.esocial-status:not(.ok):not(.off)::before { animation: ico-spin 0.8s linear infinite; }
 
+/* ---------------- botões ---------------- */
 button {
   cursor: pointer;
   font: inherit;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  padding: 9px 14px;
-  background: #fff;
-  border-color: var(--cinza-claro);
   font-weight: 600;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  padding: 9px 14px;
+  background: var(--surface);
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
+    transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
-button:hover:not(:disabled) {
-  background: #f3f4f6;
-}
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+button .i { width: 16px; height: 16px; }
+button:hover:not(:disabled) { background: var(--surface-2); border-color: var(--primary); }
+button:active:not(:disabled) { transform: scale(0.98); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
 
 button.primario {
   width: 100%;
-  background: var(--azul);
-  color: #fff;
-  border-color: var(--azul);
-  padding: 11px;
-  font-size: 15px;
+  background: var(--primary);
+  color: var(--on-primary);
+  border-color: var(--primary);
+  padding: 12px;
+  font-size: 14.5px;
+  box-shadow: var(--shadow-sm);
 }
-button.primario:hover:not(:disabled) {
-  background: var(--azul-escuro);
-}
-button.perigo {
-  color: var(--vermelho);
-  border-color: #fca5a5;
-}
-button.perigo:hover:not(:disabled) {
-  background: #fef2f2;
-}
+button.primario:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); }
+button.primario .i { width: 18px; height: 18px; }
+
+button.perigo { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
+button.perigo:hover:not(:disabled) { background: var(--danger-weak); border-color: var(--danger); }
+
 button.link {
   background: none;
   border: none;
-  color: var(--azul);
-  padding: 4px 6px;
-  text-decoration: underline;
+  color: var(--primary);
+  padding: 6px;
+  font-weight: 600;
+  box-shadow: none;
 }
+button.link:hover:not(:disabled) { background: none; text-decoration: underline; }
 
-.avancado {
-  margin-bottom: 12px;
-}
-.avancado summary {
-  cursor: pointer;
-  color: var(--azul);
-  font-size: 13px;
-  margin-bottom: 8px;
-}
-
-/* ---- execucao ---- */
+/* ---------------- execução: barra de progresso ---------------- */
 .barra {
-  height: 8px;
-  background: var(--cinza-claro);
-  border-radius: 999px;
+  position: relative;
+  height: 9px;
+  background: var(--surface-3);
+  border-radius: var(--r-pill);
   overflow: hidden;
-  margin-bottom: 14px;
+  margin-bottom: var(--s4);
 }
 .barra-fill {
   height: 100%;
   width: 0;
-  background: var(--azul);
-  transition: width 0.3s ease;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  border-radius: var(--r-pill);
+  transition: width 0.4s var(--ease);
 }
+.barra.rodando .barra-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  animation: barra-shimmer 1.3s linear infinite;
+}
+@keyframes barra-shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
 
+/* ---------------- tiles de métricas ---------------- */
 .tiles {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  margin-bottom: 14px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--s2);
+  margin-bottom: var(--s4);
 }
 .tile {
-  background: var(--fundo);
-  border-radius: 8px;
-  padding: 8px 4px;
-  text-align: center;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
+.tile-top { display: flex; align-items: center; gap: 6px; color: var(--text-subtle); }
+.tile-top .i { width: 14px; height: 14px; }
+.tile small { color: var(--text-subtle); font-size: 11px; font-weight: 500; }
 .tile strong {
-  display: block;
-  font-size: 16px;
-  color: var(--azul-escuro);
-}
-.tile small {
-  color: var(--cinza);
-  font-size: 11px;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
 }
 
-.atual {
-  margin: 0 0 14px;
-}
+/* ---------------- "atual" ---------------- */
+.atual { margin: 0 0 var(--s4); }
 .atual > div {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  padding: 5px 0;
-  border-bottom: 1px dashed var(--cinza-claro);
+  gap: var(--s3);
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
 }
+.atual > div:last-child { border-bottom: none; }
 .atual dt {
-  color: var(--cinza);
-  font-size: 13px;
+  display: flex; align-items: center; gap: 6px;
+  color: var(--text-muted);
+  font-size: 12.5px;
 }
+.atual dt .i { width: 14px; height: 14px; color: var(--text-subtle); }
 .atual dd {
   margin: 0;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 12.5px;
   text-align: right;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.controles {
-  display: flex;
-  gap: 8px;
-}
-.controles button {
-  flex: 1;
-}
-.reiniciar {
-  margin-top: 10px;
-}
+/* ---------------- controles ---------------- */
+.controles { display: flex; gap: var(--s2); }
+.controles button { flex: 1; }
+.reiniciar { margin-top: var(--s3); width: 100%; }
 
-.erros {
-  margin-top: 12px;
-}
+/* ---------------- erros ---------------- */
+.erros { margin-top: var(--s3); }
+.erros:empty { display: none; }
 .erros h3 {
-  font-size: 13px;
-  color: var(--vermelho);
-  margin: 8px 0 6px;
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12.5px;
+  color: var(--danger);
+  margin: var(--s2) 0 var(--s2);
 }
 .erro-item {
   font-size: 12px;
-  color: #7f1d1d;
-  background: #fef2f2;
+  color: var(--danger);
+  background: var(--danger-weak);
   border-radius: 6px;
-  padding: 5px 8px;
+  padding: 6px 9px;
   margin-bottom: 4px;
 }
 
+/* ---------------- gerador ---------------- */
 .titulo-sec {
-  font-size: 15px;
+  display: flex; align-items: center; gap: 7px;
+  font-size: 14px;
+  font-weight: 700;
   margin: 0 0 6px;
-  color: var(--azul-escuro);
+  color: var(--text);
 }
-input[type="file"] {
-  padding: 7px;
-  font-size: 12px;
-}
-
-.oculto {
-  display: none !important;
-}
+.titulo-sec .i { width: 18px; height: 18px; color: var(--accent); }

@@ -77,10 +77,10 @@
   function renderEsocial() {
     if (abaEsocial) {
       el.esocial.className = 'esocial-status ok';
-      el.esocial.textContent = '✓ eSocial detectado';
+      el.esocial.textContent = 'eSocial detectado';
     } else {
       el.esocial.className = 'esocial-status off';
-      el.esocial.textContent = '○ eSocial não encontrado — abra o portal e faça login na empresa';
+      el.esocial.textContent = 'eSocial não encontrado — abra o portal e faça login na empresa';
     }
   }
 
@@ -174,6 +174,11 @@
     );
     const finalizado = st === NS.STATUS.CONCLUIDO || st === NS.STATUS.CANCELADO;
     el.reiniciar.classList.toggle('oculto', !finalizado);
+
+    // efeito "shimmer" na barra apenas enquanto executa
+    if (el.barraProgresso && el.barraProgresso.parentElement) {
+      el.barraProgresso.parentElement.classList.toggle('rodando', st === NS.STATUS.EXECUTANDO);
+    }
 
     if (!temExecucao) return;
 

@@ -5,36 +5,61 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Informe de Rendimentos</title>
     <link rel="stylesheet" href="/fonts/poppins.css" />
+    <link rel="stylesheet" href="/src/common/tokens.css" />
     <link rel="stylesheet" href="informe.css" />
   </head>
   <body>
-    <!-- Barra de ferramentas (aparece após carregar os XMLs) -->
+    <!-- Barra de aplicação (aparece após carregar os XMLs) -->
     <div id="toolbar" class="toolbar oculto">
-      <div class="grp">
-        <label>Razão Social
+      <div class="appbar">
+        <div class="brand">
+          <span class="brand-logo" aria-hidden="true">
+            <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M15 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /><path d="M9 13h6M9 17h4" />
+            </svg>
+          </span>
+          <div class="brand-txt">
+            <strong>Informe de Rendimentos</strong>
+            <span>IRRF eSocial · gerado dos eventos S-5002</span>
+          </div>
+        </div>
+        <div class="appbar-actions">
+          <label class="chk" id="lblQuebra">
+            <input type="checkbox" id="quebra" /> Quebrar por empregado (.zip)
+          </label>
+          <button id="btnTrocar" class="link">
+            <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2z" /></svg>
+            Trocar pasta
+          </button>
+          <button id="btnPdf" class="primario">
+            <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>
+            Baixar PDF
+          </button>
+        </div>
+      </div>
+
+      <div class="fields">
+        <label class="campo">
+          Razão Social
           <input id="razao" type="text" placeholder="Nome da empresa (fonte pagadora)" />
         </label>
-        <label>CNPJ
+        <label class="campo">
+          CNPJ
           <input id="cnpj" type="text" placeholder="00.000.000/0000-00" />
         </label>
+        <div class="grp" id="grpPessoa">
+          <label class="campo" id="lblColab">
+            Colaborador
+            <select id="pessoa"></select>
+          </label>
+          <label class="campo">
+            Nome (editar)
+            <input id="nome" type="text" placeholder="Nome do colaborador" />
+          </label>
+        </div>
+        <div class="grp" id="grpOperadoras"></div>
+        <div id="aviso" class="aviso"></div>
       </div>
-      <div class="grp" id="grpPessoa">
-        <label id="lblColab">Colaborador
-          <select id="pessoa"></select>
-        </label>
-        <label>Nome (editar)
-          <input id="nome" type="text" placeholder="Nome do colaborador" />
-        </label>
-      </div>
-      <div class="grp" id="grpOperadoras"></div>
-      <div class="grp acoes">
-        <button id="btnPdf" class="primario">Baixar PDF</button>
-        <label class="chk" id="lblQuebra">
-          <input type="checkbox" id="quebra" /> Quebrar por empregado (.zip)
-        </label>
-        <button id="btnTrocar" class="link">Trocar pasta</button>
-      </div>
-      <div id="aviso" class="aviso"></div>
     </div>
 
     <!-- Upload da pasta -->
@@ -45,14 +70,25 @@
         de um colaborador específico. Os XMLs são lidos <b>localmente</b>, no seu
         navegador — nada é enviado para fora.
       </p>
-      <label class="botao-arquivo">
-        Selecionar pasta de XMLs
+      <label class="dropzone" id="dropzone">
+        <span class="dropzone-ico" aria-hidden="true">
+          <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 13v8" /><path d="m8 17 4-4 4 4" />
+            <path d="M20 16.7A5 5 0 0 0 18 7h-1.3A8 8 0 1 0 4 15.2" />
+          </svg>
+        </span>
+        <strong>Arraste a pasta aqui ou clique para selecionar</strong>
+        <span class="hint">Aceita a pasta inteira ou a de um colaborador (arquivos .xml)</span>
+        <span class="fake-btn">
+          <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2z" /></svg>
+          Selecionar pasta de XMLs
+        </span>
         <input type="file" id="pasta" webkitdirectory directory multiple hidden />
       </label>
       <div id="statusUpload" class="status"></div>
     </div>
 
-    <div id="preview" class="preview">
+    <div id="preview" class="preview oculto">
       <iframe id="visor" class="visor" title="Prévia do informe (PDF)"></iframe>
     </div>
 

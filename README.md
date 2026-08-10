@@ -88,7 +88,8 @@ src/
 │   ├── constants.js           mensagens, status, config padrão
 │   ├── cpf.js                 normaliza/valida/parseia CPFs
 │   ├── competencia.js         gera intervalos de competências
-│   └── storage.js             persistência do estado (chrome.storage.local)
+│   ├── storage.js             persistência do estado (chrome.storage.local)
+│   └── tokens.css             design tokens (cores, foco, ícones) + tema claro/escuro
 ├── background/                service worker (orquestração)
 │   ├── service-worker.js      ponto de entrada; roteia mensagens
 │   ├── orchestrator.js        máquina de estados / fila / recuperação
