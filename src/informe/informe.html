@@ -40,6 +40,13 @@
 
       <div class="fields">
         <label class="campo">
+          Modelo do informe
+          <div class="seg" id="segModelo" role="tablist" aria-label="Modelo do informe">
+            <button type="button" class="seg-btn is-active" data-modelo="detalhado" role="tab" aria-selected="true">Detalhado por competência</button>
+            <button type="button" class="seg-btn" data-modelo="oficial" role="tab" aria-selected="false">Padrão oficial (RFB)</button>
+          </div>
+        </label>
+        <label class="campo">
           Razão Social
           <input id="razao" type="text" placeholder="Nome da empresa (fonte pagadora)" />
         </label>
@@ -109,6 +116,8 @@
 
     <script src="/src/common/namespace.js"></script>
     <script src="/src/informe/informe-core.js"></script>
+    <script src="/src/informe/brasao.js"></script>
+    <script src="/src/informe/ttf.js"></script>
     <script src="/src/informe/informe-pdf.js"></script>
     <script src="/src/informe/zip.js"></script>
     <script src="/src/informe/lookup.js"></script>

@@ -75,7 +75,14 @@
     return m;
   })();
 
+  // Quando embutimos uma fonte TTF (comprovante oficial), as larguras vêm
+  // dela; caso contrário usamos as métricas da Helvetica padrão.
+  let FONTE_ATUAL = null; // { reg: {widths[256]}, bold: {widths[256]} } ou null
   function larguraChar(code, bold) {
+    if (FONTE_ATUAL) {
+      const ws = (bold ? FONTE_ATUAL.bold : FONTE_ATUAL.reg).widths;
+      return ws[code] || ws[0x3f] || 500;
+    }
     if (code >= 32 && code <= 126) return (bold ? ASCII_BOLD : ASCII_REG)[code - 32];
     const base = ACENTO[code];
     if (base) return (bold ? ASCII_BOLD : ASCII_REG)[base - 32];
@@ -416,6 +423,297 @@
     quebrar(nota2, S_NOTE, false, CONTENT_W - 4).forEach((ln) => notaLinha(doc, ln));
   }
 
+  // ==================================================================
+  //  MODELO OFICIAL — Comprovante de Rendimentos (IN RFB 2.060/2021),
+  //  com totais anuais (não mês a mês) e o brasão da República.
+  // ==================================================================
+  function imagemDoc(doc, x, yTop, w, h) {
+    doc.op(`q ${num(w)} 0 0 ${num(h)} ${num(x)} ${num(H - yTop - h)} cm /ImBrasao Do Q`);
+  }
+  function brasaoImagem() {
+    const b = NS.brasao;
+    if (!b || !b.b64) return null;
+    const bin = atob(b.b64);
+    const u = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    return { jpeg: u, w: b.w, h: b.h, cs: b.cs || 'DeviceRGB' };
+  }
+
+  // Soma os 12 meses do modelo -> totais anuais para o comprovante oficial.
+  function totaisAno(model) {
+    const t = {
+      rendTrib: 0, prevOficial: 0, prevCompl: 0, pensao: 0, irrf: 0,
+      p65: 0, p65_13: 0, diarias: 0, moleGrave: 0, indeniz: 0, juros: 0, outros: 0,
+      base13: 0, irrf13: 0, mMin: 13, mMax: 0,
+    };
+    for (let i = 1; i <= 12; i++) {
+      const m = model.meses[i];
+      t.rendTrib += m.rendTrib; t.prevOficial += m.prevOficial; t.prevCompl += m.prevCompl;
+      t.pensao += m.pensao; t.irrf += m.irrf; t.base13 += m.base13; t.irrf13 += m.irrf13;
+      t.p65 += m.isen.p65;         // 70
+      t.p65_13 += m.isen.p65_13;   // 71
+      t.diarias += m.isen.diarias; // 72 + 73
+      t.moleGrave += m.isen.moleGrave; // 76 + 77
+      t.indeniz += m.isen.indeniz; // 74
+      t.juros += m.isen.juros;     // juros de mora
+      t.outros += m.isen.outros;   // 75 (abono) + 79 + 700
+      const isen = m.isen;
+      const any = m.rendTrib || m.prevOficial || m.irrf || m.pensao || m.base13 || m.irrf13 ||
+        isen.p65 || isen.p65_13 || isen.diarias || isen.moleGrave || isen.indeniz || isen.juros || isen.outros;
+      if (any) { if (i < t.mMin) t.mMin = i; if (i > t.mMax) t.mMax = i; }
+    }
+    if (t.mMax === 0) { t.mMin = 1; t.mMax = 12; }
+    return t;
+  }
+  const pad2 = (n) => String(n).padStart(2, '0');
+
+  // Estilo do comprovante oficial (igual ao do sistema): bordas finas
+  // pretas, sem barras cinza, título em negrito acima da tabela.
+  const OF_LINHA = [0.12, 0.12, 0.14];
+  const OF_S = 8;    // rótulo/valor
+  const OF_SB = 8.6; // título de seção (negrito)
+  const OF_VAL_W = 80; // coluna "Valores em Reais"
+
+  function moldura(doc, x, y, w, h, cor, esp) {
+    esp = esp || 0.5; cor = cor || OF_LINHA;
+    linhaH(doc, x, y, w, cor, esp);
+    linhaH(doc, x, y + h - esp, w, cor, esp);
+    linhaV(doc, x, y, h, cor, esp);
+    linhaV(doc, x + w - esp, y, h, cor, esp);
+  }
+  function caixaVazia(doc, h) {
+    espaco(doc, h);
+    const y = doc.y;
+    moldura(doc, MX, y, CONTENT_W, h, OF_LINHA, 0.5);
+    doc.y = y + h;
+  }
+
+  // Título de seção: texto em negrito sobre branco (+ "Valores em Reais").
+  function tituloSec(doc, titulo, comValores) {
+    espaco(doc, 24);
+    doc.y += 6;
+    const y = doc.y;
+    texto(doc, MX, y + OF_SB * 0.82, titulo, { size: OF_SB, bold: true, rgb: PRETO });
+    if (comValores) {
+      texto(doc, W - MX, y + OF_SB * 0.82, 'Valores em Reais', { size: OF_SB, bold: true, rgb: PRETO, align: 'right' });
+    }
+    doc.y = y + OF_SB + 3;
+  }
+
+  // Tabela rótulo | valor (coluna à direita), com bordas.
+  function tabelaValores(doc, rows) {
+    const xVal = W - MX - OF_VAL_W;
+    const lineH = OF_S * 1.2;
+    const meta = rows.map((r) => {
+      const linhas = quebrar(r.label, OF_S, false, xVal - MX - 8);
+      const h = Math.max(lineH, linhas.length * lineH) + 5;
+      return { linhas, h, valor: r.valor };
+    });
+    const totalH = meta.reduce((s, m) => s + m.h, 0);
+    espaco(doc, totalH);
+    const y0 = doc.y;
+    let y = y0;
+    meta.forEach((m, i) => {
+      if (i > 0) linhaH(doc, MX, y, CONTENT_W, OF_LINHA, 0.4);
+      const bl = y + 3 + OF_S * 0.8;
+      m.linhas.forEach((ln, k) => texto(doc, MX + 5, bl + k * lineH, ln, { size: OF_S, rgb: PRETO }));
+      texto(doc, W - MX - 5, bl, money(m.valor), { size: OF_S, rgb: PRETO, align: 'right' });
+      y += m.h;
+    });
+    moldura(doc, MX, y0, CONTENT_W, totalH, OF_LINHA, 0.5);
+    linhaV(doc, xVal, y0, totalH, OF_LINHA, 0.4);
+    doc.y = y0 + totalH;
+  }
+
+  // Caixa de campos (rótulo pequeno em cima, valor embaixo), como identificação.
+  function caixaCampos(doc, linhas) {
+    const rows = linhas.map((cells) => ({ cells, h: 22, flex: cells.reduce((s, c) => s + (c.flex || 1), 0) }));
+    const totalH = rows.reduce((s, r) => s + r.h, 0);
+    espaco(doc, totalH);
+    const y0 = doc.y;
+    let y = y0;
+    rows.forEach((r, ri) => {
+      if (ri > 0) linhaH(doc, MX, y, CONTENT_W, OF_LINHA, 0.4);
+      let x = MX;
+      r.cells.forEach((c, ci) => {
+        const w = (CONTENT_W * (c.flex || 1)) / r.flex;
+        if (ci > 0) linhaV(doc, x, y, r.h, OF_LINHA, 0.4);
+        texto(doc, x + 5, y + 8, c.label, { size: 6.8, rgb: [0.28, 0.28, 0.3] });
+        texto(doc, x + 5, y + 18, c.valor || '', { size: OF_S, bold: !!c.bold, rgb: PRETO });
+        x += w;
+      });
+      y += r.h;
+    });
+    moldura(doc, MX, y0, CONTENT_W, totalH, OF_LINHA, 0.5);
+    doc.y = y0 + totalH;
+  }
+
+  // Cabeçalho oficial: brasão + ministério (esq.) | comprovante + período (dir.) + nota.
+  function cabecalhoOficial(doc, model, t) {
+    const ano = model.ano;
+    const y0 = doc.y;
+    const colW = CONTENT_W * 0.5;
+    const xR = MX + colW;
+    const hTop = 60;
+
+    if (NS.brasao) imagemDoc(doc, MX + 4, y0 + 6, 46, (46 * NS.brasao.h) / NS.brasao.w);
+    const lx = MX + 56;
+    texto(doc, lx, y0 + 13, 'MINISTÉRIO DA ECONOMIA', { size: 8.4, bold: true, rgb: PRETO });
+    texto(doc, lx, y0 + 25, 'SECRETARIA DA RECEITA FEDERAL DO BRASIL', { size: 8.4, bold: true, rgb: PRETO });
+    texto(doc, lx, y0 + 37, 'IMPOSTO SOBRE A RENDA DA PESSOA FÍSICA', { size: 8.4, bold: true, rgb: PRETO });
+    texto(doc, lx, y0 + 51, 'EXERCÍCIO:', { size: 8.4, bold: true, rgb: PRETO });
+    texto(doc, lx + 72, y0 + 51, String(ano + 1), { size: 8.4, bold: true, rgb: PRETO });
+
+    const rx = xR + 6;
+    texto(doc, rx, y0 + 13, 'COMPROVANTE DE RENDIMENTOS PAGOS E DE', { size: 8.4, bold: true, rgb: PRETO });
+    texto(doc, rx, y0 + 25, 'IMPOSTO SOBRE A RENDA RETIDO NA FONTE', { size: 8.4, bold: true, rgb: PRETO });
+    linhaH(doc, xR, y0 + 33, colW, OF_LINHA, 0.4);
+    texto(doc, rx, y0 + 45, 'ANO-CALENDÁRIO:', { size: 8.4, bold: true, rgb: PRETO });
+    texto(doc, rx + 108, y0 + 45, String(ano), { size: 8.4, bold: true, rgb: PRETO });
+    texto(doc, rx, y0 + 56, 'PERÍODO:', { size: 8.4, bold: true, rgb: PRETO });
+    texto(doc, rx + 108, y0 + 56, `DE ${pad2(t.mMin)}/${ano} A ${pad2(t.mMax)}/${ano}`, { size: 8.4, bold: true, rgb: PRETO });
+
+    linhaV(doc, xR, y0, hTop, OF_LINHA, 0.4);
+
+    const noteY = y0 + hTop;
+    linhaH(doc, MX, noteY, CONTENT_W, OF_LINHA, 0.4);
+    const aviso =
+      'Verifique as condições e o prazo para a apresentação da Declaração do Imposto sobre a Renda da Pessoa Física ' +
+      'para este ano - calendário no site da Secretaria Especial da Receita Federal do Brasil na Internet, no ' +
+      'endereço <https://www.gov.br/receitafederal/pt-br>';
+    const noteLines = quebrar(aviso, 7.4, false, CONTENT_W - 10);
+    let ny = noteY + 3 + 7.4 * 0.8;
+    noteLines.forEach((ln) => { texto(doc, MX + 5, ny, ln, { size: 7.4, rgb: PRETO }); ny += 9; });
+    const totalH = hTop + noteLines.length * 9 + 5;
+    moldura(doc, MX, y0, CONTENT_W, totalH, OF_LINHA, 0.5);
+    doc.y = y0 + totalH;
+  }
+
+  // Seção 7 — Informações complementares (plano de saúde + pensão), no formato do sistema.
+  function secao7Oficial(doc, model) {
+    const cnpjs = Object.keys(model.planos || {});
+    const pens = Object.keys(model.pensoes || {});
+    if (!cnpjs.length && !pens.length) { caixaVazia(doc, 16); return; }
+    const y0 = doc.y;
+    let y = y0;
+    const cel = (x, yy, txt, o) => texto(doc, x, yy, txt, Object.assign({ size: OF_S, rgb: PRETO }, o || {}));
+    const sep = () => linhaH(doc, MX, y, CONTENT_W, OF_LINHA, 0.4);
+    const band = (h) => { const yy = y; y += h; return yy; };
+    const cols = [MX, MX + 205, MX + 250, MX + 360, MX + 445, W - MX];
+
+    cnpjs.forEach((cnpj, idx) => {
+      const pl = model.planos[cnpj];
+      let totOp = 0;
+      for (let i = 1; i <= 12; i++) totOp += pl.titMeses[i] || 0;
+      for (const d of Object.keys(pl.deps || {})) for (let i = 1; i <= 12; i++) totOp += pl.deps[d].meses[i] || 0;
+      if (idx > 0) sep();
+      let yy = band(15); cel(MX + 5, yy + 10, 'DESCONTO PLANO DE SAÚDE'); cel(MX + 230, yy + 10, money(totOp));
+      sep(); yy = band(14); cel(MX + 5, yy + 9.6, 'INFORMAÇÕES DA OPERADORA DE PLANO DE SAÚDE DO BENEFICIÁRIO DO DECLARANTE', { bold: true });
+      sep(); yy = band(13); cel(MX + 5, yy + 9, `Nome:    ${idx + 1} - ${pl.razao || '—'}`);
+      sep(); yy = band(13); cel(MX + 5, yy + 9, `CNPJ:    ${fmt().cnpj(cnpj)}`); cel(MX + 250, yy + 9, `Registro ANS:    ${pl.regANS || '—'}`);
+      sep(); yy = band(14);
+      cel(cols[0] + 5, yy + 9.6, 'Beneficiário do Plano de Saúde', { bold: true });
+      cel(cols[1] + 5, yy + 9.6, 'Tipo', { bold: true });
+      cel(cols[2] + 5, yy + 9.6, 'CPF', { bold: true });
+      cel(cols[3] + 5, yy + 9.6, 'Data Nasc.', { bold: true });
+      texto(doc, W - MX - 5, yy + 9.6, 'Valor Pago', { size: OF_S, bold: true, rgb: PRETO, align: 'right' });
+      for (let k = 1; k < cols.length - 1; k++) linhaV(doc, cols[k], yy, 14, OF_LINHA, 0.4);
+      const benef = (nome, tipo, cpf, nasc, valor) => {
+        sep(); const ry = band(13);
+        cel(cols[0] + 5, ry + 9, nome); cel(cols[1] + 5, ry + 9, tipo); cel(cols[2] + 5, ry + 9, cpf);
+        cel(cols[3] + 5, ry + 9, nasc); texto(doc, W - MX - 5, ry + 9, valor, { size: OF_S, rgb: PRETO, align: 'right' });
+        for (let k = 1; k < cols.length - 1; k++) linhaV(doc, cols[k], ry, 13, OF_LINHA, 0.4);
+      };
+      let vt = 0; for (let i = 1; i <= 12; i++) vt += pl.titMeses[i] || 0;
+      benef(model.nome || '', 'T', fmt().cpf(model.cpf), '-', money(vt));
+      for (const d of Object.keys(pl.deps || {})) {
+        const dep = pl.deps[d]; let vd = 0; for (let i = 1; i <= 12; i++) vd += dep.meses[i] || 0;
+        benef(dep.nome || '', 'D', fmt().cpf(d), '-', money(vd));
+      }
+    });
+
+    if (pens.length) {
+      if (cnpjs.length) sep();
+      let yy = band(14); cel(MX + 5, yy + 9.6, 'PENSÃO ALIMENTÍCIA — BENEFICIÁRIOS', { bold: true });
+      pens.forEach((cpf) => {
+        const p = model.pensoes[cpf];
+        sep(); yy = band(13);
+        cel(MX + 5, yy + 9, `${p.nome || '(beneficiário)'} · ${fmt().cpf(cpf)}`);
+        texto(doc, W - MX - 5, yy + 9, money(p.total), { size: OF_S, rgb: PRETO, align: 'right' });
+      });
+    }
+
+    moldura(doc, MX, y0, CONTENT_W, y - y0, OF_LINHA, 0.5);
+    doc.y = y;
+  }
+
+  function renderOficial(doc, model) {
+    const ano = model.ano;
+    const t = totaisAno(model);
+    const natureza = /assalariado/i.test(model.natureza || '') ? 'RENDIMENTO DO TRABALHO ASSALARIADO' : (model.natureza || 'RENDIMENTO DO TRABALHO ASSALARIADO');
+
+    cabecalhoOficial(doc, model, t);
+
+    tituloSec(doc, '1. Fonte Pagadora Pessoa Jurídica ou Pessoa Física', false);
+    caixaCampos(doc, [[
+      { label: 'CNPJ/CPF', valor: model.cnpjFonte || fmt().cnpj(model.empregador.nrInsc), flex: 1 },
+      { label: 'Nome Empresarial / Nome Completo', valor: model.razaoSocial || '', flex: 2.1 },
+    ]]);
+
+    tituloSec(doc, '2. Pessoa Física Beneficiária dos Rendimentos', false);
+    caixaCampos(doc, [
+      [{ label: 'CPF', valor: fmt().cpf(model.cpf), flex: 1 }, { label: 'Nome Completo', valor: model.nome || '', flex: 2.1 }],
+      [{ label: 'Natureza do Rendimento', valor: natureza, flex: 1 }],
+    ]);
+
+    tituloSec(doc, '3. Rendimentos Tributáveis, Deduções e Imposto sobre a Renda Retido na Fonte', true);
+    tabelaValores(doc, [
+      { label: '1. Total dos rendimentos (inclusive férias).', valor: t.rendTrib },
+      { label: '2. Contribuição previdenciária oficial.', valor: t.prevOficial },
+      { label: '3. Contribuição a entidades de previdência complementar, pública ou privada, e a Fundo de Aposentadoria Programada Individual - (Fapi) (preencher também o Quadro 7).', valor: t.prevCompl },
+      { label: '4. Pensão alimentícia (preencher também o Quadro 7).', valor: t.pensao },
+      { label: '5. Imposto sobre a Renda Retido na Fonte (IRRF).', valor: t.irrf },
+    ]);
+
+    tituloSec(doc, '4. Rendimentos Isentos e Não Tributáveis', true);
+    tabelaValores(doc, [
+      { label: '1. Parcela isenta dos proventos de aposentadoria, reserva remunerada, reforma e pensão (65 anos ou mais), exceto a parcela isenta do 13º (décimo terceiro) salário.', valor: t.p65 },
+      { label: '2. Parcela isenta do 13º salário de aposentadoria, reserva remunerada, reforma e pensão (65 anos ou mais).', valor: t.p65_13 },
+      { label: '3. Diárias e ajudas de custo.', valor: t.diarias },
+      { label: '4. Pensão e proventos de aposentadoria ou reforma por moléstia grave; proventos de aposentadoria ou reforma por acidente em serviço.', valor: t.moleGrave },
+      { label: '5. Lucros e dividendos, apurados a partir de 1996, pagos por pessoa jurídica (lucro real, presumido ou arbitrado).', valor: 0 },
+      { label: '6. Valores pagos ao titular ou sócio da microempresa ou empresa de pequeno porte, exceto pró-labore, aluguéis ou serviços prestados.', valor: 0 },
+      { label: '7. Indenizações por rescisão de contrato de trabalho, inclusive a título de PDV e por acidente de trabalho.', valor: t.indeniz },
+      { label: '8. Juros de mora recebidos, devidos pelo atraso no pagamento de remuneração por exercício de emprego, cargo ou função.', valor: t.juros },
+      { label: '9. Outros (especificar).', valor: t.outros },
+    ]);
+
+    tituloSec(doc, '5. Rendimentos Sujeitos a Tributação Exclusiva (rendimento líquido)', true);
+    tabelaValores(doc, [
+      { label: '1. 13º (décimo terceiro) salário.', valor: t.base13 },
+      { label: '2. Imposto sobre a Renda Retido na Fonte sobre 13º (décimo terceiro) salário.', valor: t.irrf13 },
+      { label: '3. Outros.', valor: 0 },
+    ]);
+
+    tituloSec(doc, '6. Rendimentos Recebidos Acumuladamente - Art. 12-A da Lei nº 7.713, de 1988 (sujeitos a tributação exclusiva)', false);
+    caixaVazia(doc, 16);
+
+    tituloSec(doc, '7. Informações Complementares', false);
+    secao7Oficial(doc, model);
+
+    tituloSec(doc, '8. Responsável pelas Informações', false);
+    const hoje = new Date();
+    const data = `${pad2(hoje.getDate())}/${pad2(hoje.getMonth() + 1)}/${hoje.getFullYear()}`;
+    caixaCampos(doc, [[
+      { label: 'Nome', valor: model.razaoSocial || '', flex: 2.2 },
+      { label: 'Data', valor: data, flex: 0.9 },
+      { label: 'Assinatura', valor: '', flex: 1.3 },
+    ]]);
+    doc.y += 8;
+    texto(doc, MX, doc.y + 7, 'Aprovado pela Instrução Normativa RFB nº 2.060, de 13 de dezembro de 2021.', { size: 7.4, rgb: PRETO });
+    doc.y += 12;
+  }
+
   // ------------------------------------------------------------------
   //  Informe completo de 1 colaborador (assume pagina ja aberta).
   // ------------------------------------------------------------------
@@ -504,10 +802,16 @@
     };
 
     const N = doc.pages.length;
-    // objetos: 1 catalog, 2 pages, 3 F1, 4 F2, depois (page, content) x N
+    const embed = !!(doc.fontes && doc.fontes.reg && doc.fontes.bold);
+    const temImg = !!(doc.imagem && doc.imagem.jpeg);
+    // objetos fixos: 1 catalog, 2 pages, 3 F1, 4 F2; depois [descritores/arquivos
+    // da fonte embutida], [imagem], e (page, content) x N.
+    let prox = 5;
+    let f1file = 0, f1desc = 0, f2file = 0, f2desc = 0, imgNum = 0;
+    if (embed) { f1file = prox++; f1desc = prox++; f2file = prox++; f2desc = prox++; }
+    if (temImg) imgNum = prox++;
     const pageObj = [];
     const contObj = [];
-    let prox = 5;
     for (let i = 0; i < N; i++) {
       pageObj.push(prox++);
       contObj.push(prox++);
@@ -520,15 +824,51 @@
     push('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
 
     off[2] = len;
+    const xobj = temImg ? ` /XObject << /ImBrasao ${imgNum} 0 R >>` : '';
     push(
       `2 0 obj\n<< /Type /Pages /Kids [${pageObj.map((n) => `${n} 0 R`).join(' ')}] /Count ${N} ` +
-        `/MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>\nendobj\n`
+        `/MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >>${xobj} >> >> >>\nendobj\n`
     );
 
-    off[3] = len;
-    push('3 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj\n');
-    off[4] = len;
-    push('4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\nendobj\n');
+    if (embed) {
+      const fdict = (num, descNum, nome, info) =>
+        `${num} 0 obj\n<< /Type /Font /Subtype /TrueType /BaseFont /${nome} /FirstChar 32 /LastChar 255 ` +
+        `/Widths [${info.widths.slice(32, 256).join(' ')}] /Encoding /WinAnsiEncoding /FontDescriptor ${descNum} 0 R >>\nendobj\n`;
+      const fdesc = (num, fileNum, nome, info) =>
+        `${num} 0 obj\n<< /Type /FontDescriptor /FontName /${nome} /Flags ${info.flags} ` +
+        `/FontBBox [${info.bbox.join(' ')}] /ItalicAngle ${info.italicAngle} /Ascent ${info.ascent} ` +
+        `/Descent ${info.descent} /CapHeight ${info.capHeight} /StemV ${info.stemV} /FontFile2 ${fileNum} 0 R >>\nendobj\n`;
+      const ffile = (num, f) => {
+        off[num] = len;
+        push(`${num} 0 obj\n<< /Length ${f.z.length} /Length1 ${f.length1} /Filter /FlateDecode >>\nstream\n`);
+        push(f.z);
+        push('\nendstream\nendobj\n');
+      };
+      const R = doc.fontes.reg, B = doc.fontes.bold;
+      const nomeR = R.nome || 'EmbeddedFont', nomeB = B.nome || 'EmbeddedFontBold';
+      off[3] = len; push(fdict(3, f1desc, nomeR, R.info));
+      off[4] = len; push(fdict(4, f2desc, nomeB, B.info));
+      ffile(f1file, R);
+      off[f1desc] = len; push(fdesc(f1desc, f1file, nomeR, R.info));
+      ffile(f2file, B);
+      off[f2desc] = len; push(fdesc(f2desc, f2file, nomeB, B.info));
+    } else {
+      off[3] = len;
+      push('3 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj\n');
+      off[4] = len;
+      push('4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\nendobj\n');
+    }
+
+    if (temImg) {
+      off[imgNum] = len;
+      push(
+        `${imgNum} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${doc.imagem.w} /Height ${doc.imagem.h} ` +
+          `/ColorSpace /${doc.imagem.cs || 'DeviceRGB'} /BitsPerComponent 8 /Filter /DCTDecode ` +
+          `/Length ${doc.imagem.jpeg.length} >>\nstream\n`
+      );
+      push(doc.imagem.jpeg);
+      push('\nendstream\nendobj\n');
+    }
 
     for (let i = 0; i < N; i++) {
       off[pageObj[i]] = len;
@@ -559,20 +899,40 @@
   }
 
   // ---------------- API ----------------
-  function gerarUm(model) {
-    const doc = criarDoc();
-    doc.novaPagina();
-    renderInforme(doc, model);
-    return emitir(doc);
+  //  opts.modelo: 'detalhado' (mês a mês, padrão) | 'oficial' (Comprovante RFB)
+  //  Prepara a fonte embutida (Tahoma) para o modelo oficial, se carregada.
+  function comFonteOficial(doc, oficial, fn) {
+    if (oficial) {
+      doc.imagem = brasaoImagem();
+      doc.fontes = NS.fontesOficial || null;
+    }
+    const prev = FONTE_ATUAL;
+    if (doc.fontes) FONTE_ATUAL = { reg: doc.fontes.reg.info, bold: doc.fontes.bold.info };
+    try { return fn(); } finally { FONTE_ATUAL = prev; }
   }
 
-  function gerarVarios(models) {
+  function gerarUm(model, opts) {
+    const oficial = opts && opts.modelo === 'oficial';
     const doc = criarDoc();
-    models.forEach((m) => {
+    return comFonteOficial(doc, oficial, () => {
       doc.novaPagina();
-      renderInforme(doc, m);
+      if (oficial) renderOficial(doc, model);
+      else renderInforme(doc, model);
+      return emitir(doc);
     });
-    return emitir(doc);
+  }
+
+  function gerarVarios(models, opts) {
+    const oficial = opts && opts.modelo === 'oficial';
+    const doc = criarDoc();
+    return comFonteOficial(doc, oficial, () => {
+      models.forEach((m) => {
+        doc.novaPagina();
+        if (oficial) renderOficial(doc, m);
+        else renderInforme(doc, m);
+      });
+      return emitir(doc);
+    });
   }
 
   function sanitizarNome(s) {

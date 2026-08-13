@@ -100,7 +100,9 @@ src/
 │   └── content-script.js      recebe ordens e devolve os XMLs
 ├── informe/                   gerador de Informe de Rendimentos
 │   ├── informe-core.js        parser do S-5002 + modelo + formatação
-│   ├── informe-pdf.js         PDF vetorial (texto selecionável, sem libs)
+│   ├── informe-pdf.js         PDF vetorial (detalhado + comprovante oficial RFB)
+│   ├── ttf.js                 leitor TrueType (embute a Tahoma no oficial)
+│   ├── brasao.js              brasão da República (base64) p/ o oficial
 │   ├── informe.html/.css/.js  página de prévia (PDF no iframe) e download
 └── sidepanel/                 interface (UI)
     ├── panel.html
@@ -181,8 +183,16 @@ colaboradores) ou a pasta de um colaborador. Os XMLs são lidos **localmente**
 (nada sai do navegador), agrupados por pessoa e ano, e a página mostra o informe
 no layout oficial. A **prévia exibida na tela é o próprio PDF vetorial** (aberto
 num `iframe`), gerado por `informe-pdf.js` — logo o arquivo baixado é idêntico ao
-que aparece na tela, com **texto selecionável** (não é imagem). O PDF usa as
-fontes padrão Helvetica/Helvetica-Bold (WinAnsi), sem bibliotecas externas.
+que aparece na tela, com **texto selecionável** (não é imagem).
+
+Há **dois modelos** (alternáveis na barra):
+
+- **Detalhado por competência** — layout próprio, mês a mês (Jan–Dez + total),
+  em Helvetica.
+- **Padrão oficial (RFB)** — o *Comprovante de Rendimentos Pagos e de IRRF*
+  (IN RFB 2.060/2021) com **totais anuais**, reproduzindo o layout, o brasão e a
+  fonte **Tahoma** do sistema (a Tahoma é embutida no PDF via `ttf.js`; por ser
+  proprietária da Microsoft, mantenha o repositório privado).
 
 Exportação **somente em PDF**:
 

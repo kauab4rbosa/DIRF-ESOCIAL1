@@ -21,6 +21,7 @@
 
   let modelos = [];
   let idx = 0;
+  let modeloAtual = 'detalhado'; // 'detalhado' (mês a mês) | 'oficial' (Comprovante RFB)
   let urlVisor = null; // blob URL atual da prévia (revogar ao trocar)
   let reRenderTimer = null;
 
@@ -228,7 +229,7 @@
     const m = modelos[idx];
     if (!m) return;
     try {
-      const pdf = NS.informePdf.gerarUm(m);
+      const pdf = NS.informePdf.gerarUm(m, { modelo: modeloAtual });
       const nova = URL.createObjectURL(new Blob([pdf], { type: 'application/pdf' }));
       // #toolbar=0 esconde a barra do leitor de PDF na prévia
       $('visor').src = nova + '#toolbar=0&navpanes=0&view=FitH';
@@ -252,9 +253,10 @@
   async function baixarPdf() {
     aviso('');
     document.body.style.cursor = 'progress';
+    const opts = { modelo: modeloAtual };
     try {
       if (modelos.length === 1) {
-        const pdf = NS.informePdf.gerarUm(modelos[0]);
+        const pdf = NS.informePdf.gerarUm(modelos[0], opts);
         NS.informePdf.baixarBlob(new Blob([pdf], { type: 'application/pdf' }), NS.informePdf.sanitizarNome(nomeArquivo(modelos[0])) + '.pdf');
         return;
       }
@@ -264,7 +266,7 @@
         const arquivos = [];
         for (let i = 0; i < modelos.length; i++) {
           aviso(`Gerando ${i + 1}/${modelos.length}…`);
-          const pdf = NS.informePdf.gerarUm(modelos[i]);
+          const pdf = NS.informePdf.gerarUm(modelos[i], opts);
           arquivos.push({ nome: NS.informePdf.sanitizarNome(nomeArquivo(modelos[i])) + '.pdf', dados: pdf });
           await sleep(5);
         }
@@ -272,7 +274,7 @@
         NS.informePdf.baixarBlob(new Blob([zip], { type: 'application/zip' }), `Informes ${anosLabel()}.zip`);
       } else {
         // tudo junto num único PDF (uma página por colaborador)
-        const pdf = NS.informePdf.gerarVarios(modelos);
+        const pdf = NS.informePdf.gerarVarios(modelos, opts);
         NS.informePdf.baixarBlob(new Blob([pdf], { type: 'application/pdf' }), `Informes ${anosLabel()}.pdf`);
       }
       aviso('');
@@ -354,6 +356,32 @@
     });
   }
 
+  // ---------------- fonte do comprovante oficial (Tahoma, embutida) ----------------
+  async function deflateZlib(bytes) {
+    const cs = new CompressionStream('deflate'); // formato zlib (FlateDecode)
+    const w = cs.writable.getWriter();
+    w.write(bytes);
+    w.close();
+    return new Uint8Array(await new Response(cs.readable).arrayBuffer());
+  }
+  async function carregarFontesOficiais() {
+    if (NS.fontesOficial || !NS.ttf || typeof CompressionStream === 'undefined') return;
+    const carregar = async (url, nome) => {
+      const buf = new Uint8Array(await (await fetch(url)).arrayBuffer());
+      return { z: await deflateZlib(buf), length1: buf.length, info: NS.ttf.parse(buf), nome };
+    };
+    try {
+      const [reg, bold] = await Promise.all([
+        carregar('/fonts/tahoma.ttf', 'Tahoma'),
+        carregar('/fonts/tahomabd.ttf', 'TahomaBold'),
+      ]);
+      NS.fontesOficial = { reg, bold };
+      if (modeloAtual === 'oficial' && modelos.length) render(); // re-render com Tahoma
+    } catch (_) {
+      /* sem a fonte, o oficial cai na Helvetica */
+    }
+  }
+
   // ---------------- eventos ----------------
   function wire() {
     $('pasta').addEventListener('change', (e) => processarPasta(e.target.files));
@@ -383,7 +411,23 @@
     });
     $('btnPdf').addEventListener('click', baixarPdf);
     $('btnTrocar').addEventListener('click', mostrarUpload);
+
+    const seg = $('segModelo');
+    if (seg) {
+      seg.querySelectorAll('.seg-btn').forEach((b) => {
+        b.addEventListener('click', () => {
+          modeloAtual = b.getAttribute('data-modelo') || 'detalhado';
+          seg.querySelectorAll('.seg-btn').forEach((x) => {
+            const on = x === b;
+            x.classList.toggle('is-active', on);
+            x.setAttribute('aria-selected', on ? 'true' : 'false');
+          });
+          render();
+        });
+      });
+    }
   }
 
   wire();
+  carregarFontesOficiais();
 })();
