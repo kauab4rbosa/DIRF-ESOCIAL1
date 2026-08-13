@@ -132,7 +132,9 @@
     const v = {
       rendTrib: 0, prevOficial: 0, irrf: 0,
       rendTrib13: 0, prevOficial13: 0, irrf13: 0,
-      p65: 0, p65_13: 0, diarias: 0, moleGrave: 0, indeniz: 0, juros: 0, outros: 0,
+      p65: 0, p65_13: 0, diarias: 0, moleGrave: 0, indeniz: 0, juros: 0,
+      // componentes de "Outros" isentos (para "especificar" no comprovante)
+      abonoPec: 0, auxMoradia: 0, bolsaMedico: 0, isenOutros: 0,
     };
     for (const c of consolids) {
       const cr = txt(c, 'CRMen');
@@ -149,14 +151,11 @@
       v.moleGrave += nmero(c, 'vlrRendMoleGrave') + nmero(c, 'vlrRendMoleGrave13');
       v.indeniz += nmero(c, 'vlrIndResContrato');
       v.juros += nmero(c, 'vlrJurosMora');
-      // "Outros" isentos: abono pecuniario de ferias entra aqui (o layout
-      // de referencia nao tem linha propria de abono).
-      v.outros +=
-        nmero(c, 'vlrAbonoPec') +
-        nmero(c, 'vlrIsenOutros') +
-        nmero(c, 'vlrAuxMoradia') +
-        nmero(c, 'vlrBolsaMedico') +
-        nmero(c, 'vlrBolsaMedico13');
+      // "Outros" isentos, mantidos separados p/ especificar quais são:
+      v.abonoPec += nmero(c, 'vlrAbonoPec');
+      v.auxMoradia += nmero(c, 'vlrAuxMoradia');
+      v.bolsaMedico += nmero(c, 'vlrBolsaMedico') + nmero(c, 'vlrBolsaMedico13');
+      v.isenOutros += nmero(c, 'vlrIsenOutros');
     }
 
     // ---- informacoes complementares ----
@@ -241,7 +240,11 @@
           moleGrave: v.moleGrave,
           indeniz: v.indeniz,
           juros: v.juros,
-          outros: v.outros,
+          abonoPec: v.abonoPec,
+          auxMoradia: v.auxMoradia,
+          bolsaMedico: v.bolsaMedico,
+          isenOutros: v.isenOutros,
+          outros: v.abonoPec + v.auxMoradia + v.bolsaMedico + v.isenOutros,
         },
         base13,
         irrf13: v.irrf13,
@@ -260,7 +263,7 @@
   function mesVazio() {
     return {
       rendTrib: 0, prevOficial: 0, prevCompl: 0, pensao: 0, irrf: 0,
-      isen: { p65: 0, p65_13: 0, diarias: 0, moleGrave: 0, indeniz: 0, juros: 0, outros: 0 },
+      isen: { p65: 0, p65_13: 0, diarias: 0, moleGrave: 0, indeniz: 0, juros: 0, abonoPec: 0, auxMoradia: 0, bolsaMedico: 0, isenOutros: 0, outros: 0 },
       base13: 0, irrf13: 0,
     };
   }
