@@ -436,7 +436,8 @@
     const bin = atob(b.b64);
     const u = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
-    return { jpeg: u, w: b.w, h: b.h, cs: b.cs || 'DeviceRGB' };
+    // filter: 'flate' -> imagem sem perdas (raw + zlib); senão JPEG (DCTDecode).
+    return { bytes: u, w: b.w, h: b.h, cs: b.cs || 'DeviceRGB', bpc: b.bpc || 8, filter: b.filter || 'dct' };
   }
 
   // Soma os 12 meses do modelo -> totais anuais para o comprovante oficial.
@@ -897,7 +898,7 @@
 
     const N = doc.pages.length;
     const embed = !!(doc.fontes && doc.fontes.reg && doc.fontes.bold);
-    const temImg = !!(doc.imagem && doc.imagem.jpeg);
+    const temImg = !!(doc.imagem && doc.imagem.bytes);
     // objetos fixos: 1 catalog, 2 pages, 3 F1, 4 F2; depois [descritores/arquivos
     // da fonte embutida], [imagem], e (page, content) x N.
     let prox = 5;
@@ -954,13 +955,15 @@
     }
 
     if (temImg) {
+      const img = doc.imagem;
+      const filtro = img.filter === 'flate' ? 'FlateDecode' : 'DCTDecode';
       off[imgNum] = len;
       push(
-        `${imgNum} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${doc.imagem.w} /Height ${doc.imagem.h} ` +
-          `/ColorSpace /${doc.imagem.cs || 'DeviceRGB'} /BitsPerComponent 8 /Filter /DCTDecode ` +
-          `/Length ${doc.imagem.jpeg.length} >>\nstream\n`
+        `${imgNum} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${img.w} /Height ${img.h} ` +
+          `/ColorSpace /${img.cs || 'DeviceRGB'} /BitsPerComponent ${img.bpc || 8} /Filter /${filtro} ` +
+          `/Length ${img.bytes.length} >>\nstream\n`
       );
-      push(doc.imagem.jpeg);
+      push(img.bytes);
       push('\nendstream\nendobj\n');
     }
 
