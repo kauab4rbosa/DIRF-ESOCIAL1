@@ -98,14 +98,29 @@
   //  Parse de um arquivo XML -> registro de um mes (perApur) de uma pessoa.
   //  Retorna null se nao for um evtIrrfBenef valido.
   // ------------------------------------------------------------------
-  function parseXml(xmlString) {
+  // Um arquivo pode conter 1 evento (pasta de XMLs individuais) ou vários
+  // (arquivo mesclado). parseXmlTodos devolve todos; parseXml mantém o
+  // contrato antigo (o primeiro evento) por compatibilidade.
+  function parseXmlTodos(xmlString) {
     let doc;
     try {
       doc = new DOMParser().parseFromString(xmlString, 'text/xml');
     } catch (_) {
-      return null;
+      return [];
     }
-    const evt = acharUm(doc, 'evtIrrfBenef');
+    const out = [];
+    for (const evt of acharTodos(doc, 'evtIrrfBenef')) {
+      const r = parseEvt(evt);
+      if (r) out.push(r);
+    }
+    return out;
+  }
+  function parseXml(xmlString) {
+    const arr = parseXmlTodos(xmlString);
+    return arr.length ? arr[0] : null;
+  }
+
+  function parseEvt(evt) {
     if (!evt) return null;
 
     const perApur = txt(acharUm(evt, 'ideEvento'), 'perApur'); // AAAA-MM
@@ -135,10 +150,21 @@
       p65: 0, p65_13: 0, diarias: 0, moleGrave: 0, indeniz: 0, juros: 0,
       // componentes de "Outros" isentos (para "especificar" no comprovante)
       abonoPec: 0, auxMoradia: 0, bolsaMedico: 0, isenOutros: 0,
+      // PLR (Participacao nos Lucros e Resultados): tributacao exclusiva
+      plr: 0, plrIrrf: 0,
     };
     for (const c of consolids) {
       const cr = txt(c, 'CRMen');
       if (cr) crSet.add(cr);
+      // PLR - codigo de receita 3562 (ex.: 356201). E tributacao EXCLUSIVA na
+      // fonte (Lei 10.101/2000, art. 3, §5), separada dos demais rendimentos e
+      // fora da base do ajuste anual: NAO entra no rendimento tributavel mensal
+      // (Quadro 3); vai para o Quadro 5, linha 3 "Outros", pelo liquido.
+      if (cr && cr.slice(0, 4) === '3562') {
+        v.plr += nmero(c, 'vlrRendTrib');
+        v.plrIrrf += nmero(c, 'vlrCRMen');
+        continue;
+      }
       v.rendTrib += nmero(c, 'vlrRendTrib');
       v.prevOficial += nmero(c, 'vlrPrevOficial');
       v.irrf += nmero(c, 'vlrCRMen');
@@ -248,6 +274,8 @@
         },
         base13,
         irrf13: v.irrf13,
+        plr: v.plr,
+        plrIrrf: v.plrIrrf,
       },
       deps,
       pensaoPorCpf,
@@ -264,7 +292,7 @@
     return {
       rendTrib: 0, prevOficial: 0, prevCompl: 0, pensao: 0, irrf: 0,
       isen: { p65: 0, p65_13: 0, diarias: 0, moleGrave: 0, indeniz: 0, juros: 0, abonoPec: 0, auxMoradia: 0, bolsaMedico: 0, isenOutros: 0, outros: 0 },
-      base13: 0, irrf13: 0,
+      base13: 0, irrf13: 0, plr: 0, plrIrrf: 0,
     };
   }
 
@@ -305,6 +333,8 @@
       mes.irrf += mm.irrf;
       mes.base13 += mm.base13;
       mes.irrf13 += mm.irrf13;
+      mes.plr += mm.plr || 0;
+      mes.plrIrrf += mm.plrIrrf || 0;
       for (const k of Object.keys(mes.isen)) mes.isen[k] += mm.isen[k];
 
       // pensoes mensais (secao 7.3) — sem o 13o, p/ bater com o totalizador
@@ -384,6 +414,7 @@
 
   NS.informe = {
     parseXml,
+    parseXmlTodos,
     construirModelos,
     cnpjMatriz,
     fmt: { moeda: fmtMoeda, cpf: fmtCpf, cnpj: fmtCnpj },

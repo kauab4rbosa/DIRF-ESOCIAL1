@@ -72,11 +72,13 @@
     for (const f of arqs) {
       try {
         const txt = await f.text();
-        const r = NS.informe.parseXml(txt);
-        if (r) {
-          registros.push(r);
+        const rs = NS.informe.parseXmlTodos(txt); // 1 evento por arquivo ou vários (mesclado)
+        if (rs.length) {
           const nm = nomeDaPasta(f.webkitRelativePath || f.name);
-          if (nm && !nomePorCpf[r.cpf]) nomePorCpf[r.cpf] = nm;
+          for (const r of rs) {
+            registros.push(r);
+            if (nm && !nomePorCpf[r.cpf]) nomePorCpf[r.cpf] = nm;
+          }
         } else {
           ignorados++;
         }

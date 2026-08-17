@@ -446,12 +446,13 @@
       rendTrib: 0, prevOficial: 0, prevCompl: 0, pensao: 0, irrf: 0,
       p65: 0, p65_13: 0, diarias: 0, moleGrave: 0, indeniz: 0, juros: 0, outros: 0,
       abonoPec: 0, auxMoradia: 0, bolsaMedico: 0, isenOutros: 0,
-      base13: 0, irrf13: 0, mMin: 13, mMax: 0,
+      base13: 0, irrf13: 0, plr: 0, plrIrrf: 0, mMin: 13, mMax: 0,
     };
     for (let i = 1; i <= 12; i++) {
       const m = model.meses[i];
       t.rendTrib += m.rendTrib; t.prevOficial += m.prevOficial; t.prevCompl += m.prevCompl;
       t.pensao += m.pensao; t.irrf += m.irrf; t.base13 += m.base13; t.irrf13 += m.irrf13;
+      t.plr += m.plr || 0; t.plrIrrf += m.plrIrrf || 0;
       t.p65 += m.isen.p65;         // 70
       t.p65_13 += m.isen.p65_13;   // 71
       t.diarias += m.isen.diarias; // 72 + 73
@@ -464,7 +465,7 @@
       t.bolsaMedico += m.isen.bolsaMedico || 0;
       t.isenOutros += m.isen.isenOutros || 0;
       const isen = m.isen;
-      const any = m.rendTrib || m.prevOficial || m.irrf || m.pensao || m.base13 || m.irrf13 ||
+      const any = m.rendTrib || m.prevOficial || m.irrf || m.pensao || m.base13 || m.irrf13 || m.plr ||
         isen.p65 || isen.p65_13 || isen.diarias || isen.moleGrave || isen.indeniz || isen.juros || isen.outros;
       if (any) { if (i < t.mMin) t.mMin = i; if (i > t.mMax) t.mMax = i; }
     }
@@ -587,6 +588,23 @@
     doc.y = y0 + totalH;
   }
 
+  // ---- caixa com uma nota (texto corrido) — usada p/ observações da seção 7.
+  function alturaNota(str) {
+    const linhas = quebrar(str, OF_S, false, CONTENT_W - 14);
+    return linhas.length * (OF_S * 1.4) + 9;
+  }
+  function notaBoxOficial(doc, str) {
+    const linhas = quebrar(str, OF_S, false, CONTENT_W - 14);
+    const lineH = OF_S * 1.4;
+    const h = linhas.length * lineH + 9;
+    espaco(doc, h);
+    const y0 = doc.y;
+    let bl = y0 + 5 + OF_S * 0.8;
+    linhas.forEach((ln) => { texto(doc, MX + 6, bl, ln, { size: OF_S, rgb: PRETO }); bl += lineH; });
+    moldura(doc, MX, y0, CONTENT_W, h, OF_LINHA, 0.5);
+    doc.y = y0 + h;
+  }
+
   // Cabeçalho oficial: brasão + ministério (esq.) | comprovante + período (dir.) + nota.
   function cabecalhoOficial(doc, model, t) {
     const ano = model.ano;
@@ -699,7 +717,8 @@
   }
 
   // Altura do primeiro bloco da seção 7 (p/ manter o título junto na paginação).
-  function alturaSecao7(model) {
+  function alturaSecao7(model, nota) {
+    if (nota) return alturaNota(nota);
     const cnpjs = Object.keys(model.planos || {});
     const pens = Object.keys(model.pensoes || {});
     const pens13 = Object.keys(model.pensoes13 || {}).filter((c) => (model.pensoes13[c].total || 0) > 0);
@@ -712,11 +731,18 @@
     return 15 + 15 + 14 * Math.max(1, pens.length) + (pens13.length ? 15 + 14 * pens13.length : 0);
   }
 
-  function secao7Oficial(doc, model) {
+  function secao7Oficial(doc, model, opts) {
+    opts = opts || {};
+    const nota = opts.plrNota;
     const cnpjs = Object.keys(model.planos || {});
     const pens = Object.keys(model.pensoes || {});
     const pens13 = Object.keys(model.pensoes13 || {}).filter((c) => (model.pensoes13[c].total || 0) > 0);
-    if (!cnpjs.length && !pens.length && !pens13.length) { caixaVazia(doc, 16); return; }
+    const temBoxes = cnpjs.length || pens.length || pens13.length;
+    if (!nota && !temBoxes) { caixaVazia(doc, 16); return; }
+    if (nota) {
+      notaBoxOficial(doc, nota);
+      if (temBoxes) doc.y += 8; // respiro entre a nota e as tabelas
+    }
     cnpjs.forEach((cnpj, idx) => {
       if (idx > 0) doc.y += 6;
       planoBox(doc, model, cnpj, idx);
@@ -761,10 +787,17 @@
       { label: '8. Juros de mora recebidos, devidos pelo atraso no pagamento de remuneração por exercício de emprego, cargo ou função.', valor: t.juros },
       { label: lbl9, valor: t.outros },
     ];
+    // PLR (Participação nos Lucros e Resultados): tributação exclusiva -> entra
+    // no Quadro 5, linha 3 "Outros", pelo líquido (bruto - IRRF), com nota no Q7.
+    const plrLiq = n2(t.plr - t.plrIrrf);
+    const temPlr = Math.abs(plrLiq) > 0.005 || Math.abs(t.plr) > 0.005;
+    const plrNota = temPlr
+      ? `O total informado na linha 03 do Quadro 5 já inclui o valor total pago a título de PLR correspondente a R$ ${money(plrLiq)}`
+      : null;
     const rows5 = [
       { label: '1. 13º (décimo terceiro) salário.', valor: t.base13 },
       { label: '2. Imposto sobre a Renda Retido na Fonte sobre 13º (décimo terceiro) salário.', valor: t.irrf13 },
-      { label: '3. Outros.', valor: 0 },
+      { label: temPlr ? '3. Outros.Participação de lucros' : '3. Outros.', valor: plrLiq },
     ];
 
     cabecalhoOficial(doc, model, t);
@@ -793,8 +826,8 @@
     tituloSec(doc, '6. Rendimentos Recebidos Acumuladamente - Art. 12-A da Lei nº 7.713, de 1988 (sujeitos a tributação exclusiva)', false, 16);
     caixaVazia(doc, 16);
 
-    tituloSec(doc, '7. Informações Complementares', false, alturaSecao7(model));
-    secao7Oficial(doc, model);
+    tituloSec(doc, '7. Informações Complementares', false, alturaSecao7(model, plrNota));
+    secao7Oficial(doc, model, { plrNota });
 
     tituloSec(doc, '8. Responsável pelas Informações', false, KV_H + 12);
     const hoje = new Date();
@@ -862,6 +895,11 @@
     cabecalhoTabela(doc, '');
     linhaDados(doc, '1. 13º (Décimo terceiro) salário', valoresDe(model, (x) => x.base13), 0);
     linhaDados(doc, '2. Imposto sobre a renda retido na fonte sobre 13º (décimo terceiro) salário', valoresDe(model, (x) => x.irrf13), 1);
+    // 3. Participação nos Lucros e Resultados (líquido) — só aparece quando há valor.
+    const plrLiqMes = valoresDe(model, (x) => (x.plr || 0) - (x.plrIrrf || 0));
+    if (plrLiqMes.some((v) => Math.abs(v) > 0.005)) {
+      linhaDados(doc, '3. Outros — Participação nos Lucros e Resultados (líquido)', plrLiqMes, 2);
+    }
 
     // --- Secao 6 ---
     secao(doc, '6. Rendimentos recebidos acumuladamente (Art 12-A Lei 7.713/88)', false);
