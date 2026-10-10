@@ -446,13 +446,14 @@
       rendTrib: 0, prevOficial: 0, prevCompl: 0, pensao: 0, irrf: 0,
       p65: 0, p65_13: 0, diarias: 0, moleGrave: 0, indeniz: 0, juros: 0, outros: 0,
       abonoPec: 0, auxMoradia: 0, bolsaMedico: 0, isenOutros: 0,
-      base13: 0, irrf13: 0, plr: 0, plrIrrf: 0, mMin: 13, mMax: 0,
+      base13: 0, irrf13: 0, plr: 0, plrIrrf: 0, rra: 0, rraPrev: 0, rraIrrf: 0, mMin: 13, mMax: 0,
     };
     for (let i = 1; i <= 12; i++) {
       const m = model.meses[i];
       t.rendTrib += m.rendTrib; t.prevOficial += m.prevOficial; t.prevCompl += m.prevCompl;
       t.pensao += m.pensao; t.irrf += m.irrf; t.base13 += m.base13; t.irrf13 += m.irrf13;
       t.plr += m.plr || 0; t.plrIrrf += m.plrIrrf || 0;
+      t.rra += m.rra || 0; t.rraPrev += m.rraPrev || 0; t.rraIrrf += m.rraIrrf || 0;
       t.p65 += m.isen.p65;         // 70
       t.p65_13 += m.isen.p65_13;   // 71
       t.diarias += m.isen.diarias; // 72 + 73
@@ -465,7 +466,7 @@
       t.bolsaMedico += m.isen.bolsaMedico || 0;
       t.isenOutros += m.isen.isenOutros || 0;
       const isen = m.isen;
-      const any = m.rendTrib || m.prevOficial || m.irrf || m.pensao || m.base13 || m.irrf13 || m.plr ||
+      const any = m.rendTrib || m.prevOficial || m.irrf || m.pensao || m.base13 || m.irrf13 || m.plr || m.rra ||
         isen.p65 || isen.p65_13 || isen.diarias || isen.moleGrave || isen.indeniz || isen.juros || isen.outros;
       if (any) { if (i < t.mMin) t.mMin = i; if (i > t.mMax) t.mMax = i; }
     }
@@ -717,8 +718,8 @@
   }
 
   // Altura do primeiro bloco da seção 7 (p/ manter o título junto na paginação).
-  function alturaSecao7(model, nota) {
-    if (nota) return alturaNota(nota);
+  function alturaSecao7(model, notas) {
+    if (notas && notas.length) return alturaNota(notas[0]);
     const cnpjs = Object.keys(model.planos || {});
     const pens = Object.keys(model.pensoes || {});
     const pens13 = Object.keys(model.pensoes13 || {}).filter((c) => (model.pensoes13[c].total || 0) > 0);
@@ -733,16 +734,14 @@
 
   function secao7Oficial(doc, model, opts) {
     opts = opts || {};
-    const nota = opts.plrNota;
+    const notas = opts.notas || [];
     const cnpjs = Object.keys(model.planos || {});
     const pens = Object.keys(model.pensoes || {});
     const pens13 = Object.keys(model.pensoes13 || {}).filter((c) => (model.pensoes13[c].total || 0) > 0);
     const temBoxes = cnpjs.length || pens.length || pens13.length;
-    if (!nota && !temBoxes) { caixaVazia(doc, 16); return; }
-    if (nota) {
-      notaBoxOficial(doc, nota);
-      if (temBoxes) doc.y += 8; // respiro entre a nota e as tabelas
-    }
+    if (!notas.length && !temBoxes) { caixaVazia(doc, 16); return; }
+    notas.forEach((n, i) => { if (i > 0) doc.y += 6; notaBoxOficial(doc, n); });
+    if (notas.length && temBoxes) doc.y += 8; // respiro entre as notas e as tabelas
     cnpjs.forEach((cnpj, idx) => {
       if (idx > 0) doc.y += 6;
       planoBox(doc, model, cnpj, idx);
@@ -823,11 +822,40 @@
     tituloSec(doc, '5. Rendimentos Sujeitos a Tributação Exclusiva (rendimento líquido)', true, alturaTabela(rows5));
     tabelaValores(doc, rows5);
 
-    tituloSec(doc, '6. Rendimentos Recebidos Acumuladamente - Art. 12-A da Lei nº 7.713, de 1988 (sujeitos a tributação exclusiva)', false, 16);
-    caixaVazia(doc, 16);
+    // Quadro 6 — RRA (Rendimentos Recebidos Acumuladamente, art. 12-A Lei 7.713/88).
+    const ri = model.rraInfo;
+    const temRRA = Math.abs(t.rra) > 0.005 || (ri && (ri.custas || ri.adv || ri.qtdMeses));
+    const despJud = ri ? (ri.custas + ri.adv) : 0;
+    const rows6 = [
+      { label: '1. Total dos rendimentos recebidos acumuladamente (inclusive 13º salário, quando houver).', valor: t.rra },
+      { label: '2. Contribuição previdenciária oficial.', valor: t.rraPrev },
+      { label: '3. Despesas com ação judicial (custas e honorários advocatícios).', valor: despJud },
+      { label: '4. Imposto sobre a Renda Retido na Fonte.', valor: t.rraIrrf },
+    ];
+    if (temRRA) {
+      tituloSec(doc, '6. Rendimentos Recebidos Acumuladamente - Art. 12-A da Lei nº 7.713, de 1988 (sujeitos a tributação exclusiva)', true, KV_H + alturaTabela(rows6));
+      const tpProc = ri && ri.tpProc === '2' ? 'Judicial' : (ri && ri.tpProc === '1' ? 'Administrativo' : '—');
+      const qtd = ri && ri.qtdMeses ? String(ri.qtdMeses).replace('.', ',') : '—';
+      caixaCampos(doc, [[
+        { label: 'Tipo de processo', valor: tpProc, flex: 1 },
+        { label: 'Número do processo', valor: (ri && ri.nrProc) || '—', flex: 1.9 },
+        { label: 'Quantidade de meses', valor: qtd, flex: 1 },
+      ]]);
+      tabelaValores(doc, rows6);
+    } else {
+      tituloSec(doc, '6. Rendimentos Recebidos Acumuladamente - Art. 12-A da Lei nº 7.713, de 1988 (sujeitos a tributação exclusiva)', false, 16);
+      caixaVazia(doc, 16);
+    }
 
-    tituloSec(doc, '7. Informações Complementares', false, alturaSecao7(model, plrNota));
-    secao7Oficial(doc, model, { plrNota });
+    // Quadro 7 — notas: PLR + casos complementares detectados no XML.
+    const cp = model.compl || {};
+    const notas = [];
+    if (plrNota) notas.push(plrNota);
+    if (cp.reembMed > 0.005) notas.push(`Reembolso de despesas médicas / plano de saúde no ano-calendário: R$ ${money(cp.reembMed)}.`);
+    if (cp.exigSusp) notas.push('Há rendimentos com exigibilidade de tributo suspensa por decisão judicial (grupo de processo informado no evento S-5002); confira os valores junto à fonte pagadora.');
+    if (cp.paisExt) notas.push(`Há rendimentos pagos a beneficiário residente no exterior (código do país: ${cp.paisExt}), sujeitos a tributação específica na fonte.`);
+    tituloSec(doc, '7. Informações Complementares', false, alturaSecao7(model, notas));
+    secao7Oficial(doc, model, { notas });
 
     tituloSec(doc, '8. Responsável pelas Informações', false, KV_H + 12);
     const hoje = new Date();
@@ -901,8 +929,24 @@
       linhaDados(doc, '3. Outros — Participação nos Lucros e Resultados (líquido)', plrLiqMes, 2);
     }
 
-    // --- Secao 6 ---
-    secao(doc, '6. Rendimentos recebidos acumuladamente (Art 12-A Lei 7.713/88)', false);
+    // --- Secao 6 (RRA) ---
+    const rraMes = valoresDe(model, (x) => x.rra || 0);
+    const temRRADet = rraMes.some((v) => Math.abs(v) > 0.005) || (model.rraInfo && (model.rraInfo.custas || model.rraInfo.adv));
+    secao(doc, '6. Rendimentos recebidos acumuladamente (Art 12-A Lei 7.713/88)', !!temRRADet);
+    if (temRRADet) {
+      cabecalhoTabela(doc, '');
+      linhaDados(doc, '1. Total dos rendimentos recebidos acumuladamente', rraMes, 0);
+      linhaDados(doc, '2. Imposto de renda retido na fonte sobre RRA', valoresDe(model, (x) => x.rraIrrf || 0), 1);
+      const ri = model.rraInfo;
+      if (ri) {
+        const tp = ri.tpProc === '2' ? 'judicial' : (ri.tpProc === '1' ? 'administrativo' : '');
+        const partes = [];
+        if (ri.qtdMeses) partes.push(`${String(ri.qtdMeses).replace('.', ',')} meses`);
+        if (ri.nrProc) partes.push(`processo ${tp} nº ${ri.nrProc}`);
+        if (ri.custas || ri.adv) partes.push(`despesas com ação judicial R$ ${money(ri.custas + ri.adv)} (custas R$ ${money(ri.custas)} + honorários R$ ${money(ri.adv)})`);
+        if (partes.length) notaLinha(doc, 'RRA: ' + partes.join('; ') + '.');
+      }
+    }
 
     // --- Secao 7 ---
     secao(doc, '7. Informações Complementares', true);

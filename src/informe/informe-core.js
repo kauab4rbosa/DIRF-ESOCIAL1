@@ -152,6 +152,8 @@
       abonoPec: 0, auxMoradia: 0, bolsaMedico: 0, isenOutros: 0,
       // PLR (Participacao nos Lucros e Resultados): tributacao exclusiva
       plr: 0, plrIrrf: 0,
+      // RRA (Rendimentos Recebidos Acumuladamente): tributacao exclusiva (Q6)
+      rra: 0, rraPrev: 0, rraIrrf: 0,
     };
     for (const c of consolids) {
       const cr = txt(c, 'CRMen');
@@ -163,6 +165,16 @@
       if (cr && cr.slice(0, 4) === '3562') {
         v.plr += nmero(c, 'vlrRendTrib');
         v.plrIrrf += nmero(c, 'vlrCRMen');
+        continue;
+      }
+      // RRA - codigo de receita 1889 (ex.: 188901). Rendimentos Recebidos
+      // Acumuladamente (art. 12-A da Lei 7.713/88): tributacao EXCLUSIVA na
+      // fonte, apurada pelo numero de meses. NAO entra no Quadro 3; vai para o
+      // Quadro 6 (com nº do processo, qtd. de meses e despesas judiciais).
+      if (cr && cr.slice(0, 4) === '1889') {
+        v.rra += nmero(c, 'vlrRendTrib');
+        v.rraPrev += nmero(c, 'vlrPrevOficial');
+        v.rraIrrf += nmero(c, 'vlrCRMen');
         continue;
       }
       v.rendTrib += nmero(c, 'vlrRendTrib');
@@ -241,6 +253,37 @@
       })),
     }));
 
+    // RRA (metadados): grupo infoRRA fica em dmDev; acharTodos localiza em
+    // qualquer nivel. tpProcRRA 1=administrativo, 2=judicial; nrProcRRA = nº do
+    // processo; qtdMesesRRA = nº de meses; despProcJud = custas + advogados.
+    let rraInfo = null;
+    const rraEls = acharTodos(ideTrab, 'infoRRA');
+    if (rraEls.length) {
+      rraInfo = { custas: 0, adv: 0, qtdMeses: 0, tpProc: '', nrProc: '', desc: '' };
+      for (const ir of rraEls) {
+        rraInfo.custas += nmero(ir, 'vlrDespCustas');
+        rraInfo.adv += nmero(ir, 'vlrDespAdvogados');
+        const q = nmero(ir, 'qtdMesesRRA');
+        if (q > rraInfo.qtdMeses) rraInfo.qtdMeses = q;
+        if (!rraInfo.tpProc) rraInfo.tpProc = txt(ir, 'tpProcRRA');
+        if (!rraInfo.nrProc) rraInfo.nrProc = txt(ir, 'nrProcRRA');
+        if (!rraInfo.desc) rraInfo.desc = txt(ir, 'descRRA');
+      }
+    }
+
+    // Casos complementares (sem dados suficientes para quadro proprio): apenas
+    // detectados, para surgir uma observacao no Quadro 7 — nunca inventados.
+    let reembMed = 0;
+    for (const dr of acharTodos(ideTrab, 'detReembTit')) reembMed += nmero(dr, 'vlrReemb');
+    for (const dr of acharTodos(ideTrab, 'detReembDep')) reembMed += nmero(dr, 'vlrReemb');
+    const temExigSusp = acharTodos(ideTrab, 'infoProcRet').length > 0;
+    let paisExt = '';
+    for (const td of acharTodos(ideTrab, 'totApurDia')) {
+      const p = txt(td, 'paisResidExt');
+      if (p) { paisExt = p; break; }
+    }
+    const compl = { reembMed, exigSusp: temExigSusp, paisExt };
+
     // 13o liquido (como no sistema de folha):
     //   bruto - INSS - pensao - deducao de dependente (valida) - IRRF.
     // O IRRF do 13o aparece em linha propria (vlrCR13Men).
@@ -276,7 +319,12 @@
         irrf13: v.irrf13,
         plr: v.plr,
         plrIrrf: v.plrIrrf,
+        rra: v.rra,
+        rraPrev: v.rraPrev,
+        rraIrrf: v.rraIrrf,
       },
+      rraInfo,
+      compl,
       deps,
       pensaoPorCpf,
       pensao13PorCpf,
@@ -292,7 +340,7 @@
     return {
       rendTrib: 0, prevOficial: 0, prevCompl: 0, pensao: 0, irrf: 0,
       isen: { p65: 0, p65_13: 0, diarias: 0, moleGrave: 0, indeniz: 0, juros: 0, abonoPec: 0, auxMoradia: 0, bolsaMedico: 0, isenOutros: 0, outros: 0 },
-      base13: 0, irrf13: 0, plr: 0, plrIrrf: 0,
+      base13: 0, irrf13: 0, plr: 0, plrIrrf: 0, rra: 0, rraPrev: 0, rraIrrf: 0,
     };
   }
 
@@ -316,6 +364,8 @@
           pensoes: {}, // cpf -> { meses:{}, total }  (mensal)
           pensoes13: {}, // cpf -> { total }  (13o)
           planos: {}, // cnpjOper -> { regANS, titMeses:{}, deps:{cpf:{meses:{}}} }
+          rraInfo: null, // { custas, adv, qtdMeses, tpProc, nrProc, desc }
+          compl: { reembMed: 0, exigSusp: false, paisExt: '' },
         };
         for (let i = 1; i <= 12; i++) mdl.meses[i] = mesVazio();
         mapa.set(chave, mdl);
@@ -335,7 +385,26 @@
       mes.irrf13 += mm.irrf13;
       mes.plr += mm.plr || 0;
       mes.plrIrrf += mm.plrIrrf || 0;
+      mes.rra += mm.rra || 0;
+      mes.rraPrev += mm.rraPrev || 0;
+      mes.rraIrrf += mm.rraIrrf || 0;
       for (const k of Object.keys(mes.isen)) mes.isen[k] += mm.isen[k];
+
+      // RRA (metadados) e casos complementares — consolida no modelo.
+      if (r.rraInfo) {
+        if (!mdl.rraInfo) mdl.rraInfo = { custas: 0, adv: 0, qtdMeses: 0, tpProc: '', nrProc: '', desc: '' };
+        mdl.rraInfo.custas += r.rraInfo.custas;
+        mdl.rraInfo.adv += r.rraInfo.adv;
+        if (r.rraInfo.qtdMeses > mdl.rraInfo.qtdMeses) mdl.rraInfo.qtdMeses = r.rraInfo.qtdMeses;
+        if (!mdl.rraInfo.tpProc) mdl.rraInfo.tpProc = r.rraInfo.tpProc;
+        if (!mdl.rraInfo.nrProc) mdl.rraInfo.nrProc = r.rraInfo.nrProc;
+        if (!mdl.rraInfo.desc) mdl.rraInfo.desc = r.rraInfo.desc;
+      }
+      if (r.compl) {
+        mdl.compl.reembMed += r.compl.reembMed || 0;
+        mdl.compl.exigSusp = mdl.compl.exigSusp || r.compl.exigSusp;
+        if (!mdl.compl.paisExt) mdl.compl.paisExt = r.compl.paisExt;
+      }
 
       // pensoes mensais (secao 7.3) — sem o 13o, p/ bater com o totalizador
       for (const cpfDep of Object.keys(r.pensaoPorCpf)) {
