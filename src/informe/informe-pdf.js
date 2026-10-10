@@ -474,6 +474,17 @@
     return t;
   }
   const pad2 = (n) => String(n).padStart(2, '0');
+  // "INDENIZACAO RECLAMATORIA" -> "Indenizacao reclamatoria" (1ª maiúscula).
+  function tituloCaso(s) {
+    s = String(s || '').trim().toLowerCase();
+    return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+  }
+  // Nº de processo CNJ (20 dígitos) -> NNNNNNN-DD.AAAA.J.TR.OOOO.
+  function fmtProcTrab(s) {
+    const d = String(s || '').replace(/\D/g, '');
+    if (d.length !== 20) return String(s || '');
+    return `${d.slice(0, 7)}-${d.slice(7, 9)}.${d.slice(9, 13)}.${d.slice(13, 14)}.${d.slice(14, 16)}.${d.slice(16)}`;
+  }
 
   // Estilo do comprovante oficial (igual ao do sistema): bordas finas
   // pretas, sem barras cinza, título em negrito acima da tabela.
@@ -756,11 +767,12 @@
     const natureza = /assalariado/i.test(model.natureza || '') ? 'RENDIMENTO DO TRABALHO ASSALARIADO' : (model.natureza || 'RENDIMENTO DO TRABALHO ASSALARIADO');
 
     // Item 4.9 "Outros (especificar)": discrimina os componentes classificados no XML.
+    const descOutros = model.isenOutrosDesc ? tituloCaso(model.isenOutrosDesc) : 'Outras isenções';
     const compOutros = [
       ['Abono pecuniário', t.abonoPec],
       ['Auxílio-moradia', t.auxMoradia],
       ['Bolsa de médico-residente', t.bolsaMedico],
-      ['Outras isenções', t.isenOutros],
+      [descOutros, t.isenOutros],
     ].filter((c) => Math.abs(c[1]) > 0.005);
     let lbl9 = '9. Outros (especificar).';
     if (compOutros.length === 1) lbl9 = `9. Outros (especificar): ${compOutros[0][0]}.`;
@@ -847,10 +859,13 @@
       caixaVazia(doc, 16);
     }
 
-    // Quadro 7 — notas: PLR + casos complementares detectados no XML.
+    // Quadro 7 — notas: PLR + reclamatória + casos complementares detectados no XML.
     const cp = model.compl || {};
     const notas = [];
     if (plrNota) notas.push(plrNota);
+    if (model.reclamatoria && model.reclamatoria.nrProc) {
+      notas.push(`Rendimentos decorrentes de reclamatória trabalhista — processo nº ${fmtProcTrab(model.reclamatoria.nrProc)}.`);
+    }
     if (cp.reembMed > 0.005) notas.push(`Reembolso de despesas médicas / plano de saúde no ano-calendário: R$ ${money(cp.reembMed)}.`);
     if (cp.exigSusp) notas.push('Há rendimentos com exigibilidade de tributo suspensa por decisão judicial (grupo de processo informado no evento S-5002); confira os valores junto à fonte pagadora.');
     if (cp.paisExt) notas.push(`Há rendimentos pagos a beneficiário residente no exterior (código do país: ${cp.paisExt}), sujeitos a tributação específica na fonte.`);
@@ -915,7 +930,8 @@
     // "Outros" (inclui abono pecuniário): so aparece quando ha valor.
     const outros = valoresDe(model, (x) => x.isen.outros);
     if (outros.some((v) => Math.abs(v) > 0.005)) {
-      linhaDados(doc, '9. Outros Rendimentos', outros, 8);
+      const lbl9 = model.isenOutrosDesc ? `9. Outros Rendimentos (${tituloCaso(model.isenOutrosDesc)})` : '9. Outros Rendimentos';
+      linhaDados(doc, lbl9, outros, 8);
     }
 
     // --- Secao 5 (tributacao exclusiva) ---

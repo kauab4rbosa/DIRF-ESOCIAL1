@@ -58,6 +58,15 @@
     const n = parseFloat(t);
     return isNaN(n) ? 0 : n;
   }
+  // Valores em ATRIBUTO (usado no evtContProc / S-2501, que guarda os valores
+  // de IR em atributos, não em elementos-filho).
+  function attr(el, nome) {
+    return el && el.getAttribute ? (el.getAttribute(nome) || '') : '';
+  }
+  function attrNum(el, nome) {
+    const n = parseFloat(attr(el, nome));
+    return isNaN(n) ? 0 : n;
+  }
 
   // ------------------------------------------------------------------
   //  Formatadores.
@@ -113,11 +122,118 @@
       const r = parseEvt(evt);
       if (r) out.push(r);
     }
+    // evtContProc (S-2501): IRRF decorrente de processo trabalhista. Valores em
+    // atributos; mapeados para os mesmos quadros do comprovante.
+    for (const evt of acharTodos(doc, 'evtContProc')) {
+      const r = parseEvtContProc(evt);
+      if (r) out.push(r);
+    }
     return out;
   }
   function parseXml(xmlString) {
     const arr = parseXmlTodos(xmlString);
     return arr.length ? arr[0] : null;
+  }
+
+  // Nomes (e CPF) vindos do evtProcTrab (S-2500), que é o cadastro do processo
+  // trabalhista. Usado para preencher o nome do beneficiário nos comprovantes
+  // de reclamatória (o evtContProc traz só o CPF).
+  function coletarNomes(xmlString) {
+    const nomes = {};
+    let doc;
+    try {
+      doc = new DOMParser().parseFromString(xmlString, 'text/xml');
+    } catch (_) {
+      return nomes;
+    }
+    for (const evt of acharTodos(doc, 'evtProcTrab')) {
+      for (const it of acharTodos(evt, 'ideTrab')) {
+        const cpf = txt(it, 'cpfTrab') || attr(it, 'cpfTrab');
+        const nm = txt(it, 'nmTrab');
+        if (cpf && nm) nomes[cpf.replace(/\D/g, '')] = nm;
+      }
+    }
+    return nomes;
+  }
+
+  // evtContProc (S-2501) -> registro de um mês, no mesmo formato de parseEvt.
+  function parseEvtContProc(evt) {
+    if (!evt) return null;
+    const ideProc = acharUm(evt, 'ideProc');
+    const perApur = txt(ideProc, 'perApurPgto'); // AAAA-MM
+    const m = /^(\d{4})-(\d{2})$/.exec(perApur);
+    if (!m) return null;
+    const ano = parseInt(m[1], 10);
+    const mes = parseInt(m[2], 10);
+
+    const ideEmp = acharUm(evt, 'ideEmpregador');
+    const empregador = { tpInsc: txt(ideEmp, 'tpInsc'), nrInsc: txt(ideEmp, 'nrInsc') };
+    const nrProcTrab = txt(ideProc, 'nrProcTrab');
+
+    const ideTrab = acharUm(evt, 'ideTrab');
+    const cpf = (txt(ideTrab, 'cpfTrab') || attr(ideTrab, 'cpfTrab')).replace(/\D/g, '');
+    if (!cpf) return null;
+
+    const v = {
+      rendTrib: 0, prevOficial: 0, irrf: 0,
+      rendTrib13: 0, prevOficial13: 0, irrf13: 0,
+      p65: 0, p65_13: 0, moleGrave: 0, juros: 0, isenOutros: 0,
+    };
+    let isenDesc = '';
+    const crSet = new Set();
+    for (const cr of acharTodos(ideTrab, 'infoCRIRRF')) {
+      const tpCR = attr(cr, 'tpCR');
+      if (tpCR) crSet.add(tpCR);
+      v.irrf += attrNum(cr, 'vrCR'); // IRRF total do CR
+      for (const ir of acharTodos(cr, 'infoIR')) {
+        v.rendTrib += attrNum(ir, 'vrRendTrib');
+        v.rendTrib13 += attrNum(ir, 'vrRendTrib13');
+        v.prevOficial += attrNum(ir, 'vrPrevOficial');
+        v.prevOficial13 += attrNum(ir, 'vrPrevOficial13');
+        v.p65 += attrNum(ir, 'vrRendIsen65');
+        v.p65_13 += attrNum(ir, 'vrRendIsen65Dec');
+        v.moleGrave += attrNum(ir, 'vrRendMoleGrave') + attrNum(ir, 'vrRendMoleGrave13');
+        v.juros += attrNum(ir, 'vrJurosMora') + attrNum(ir, 'vrJurosMora13');
+        v.isenOutros += attrNum(ir, 'vrRendIsenNTrib');
+        const d = attr(ir, 'descIsenNTrib');
+        if (d && !isenDesc) isenDesc = d;
+      }
+    }
+    // 13º líquido (sem dedução de pensão/dependente na reclamatória): bruto - INSS - IRRF.
+    const base13 = v.rendTrib13 - v.prevOficial13 - v.irrf13;
+
+    return {
+      cpf,
+      ano,
+      mes,
+      perApur,
+      empregador,
+      natureza: 'RENDIMENTO DECORRENTE DE RECLAMATÓRIA TRABALHISTA',
+      mensal: {
+        rendTrib: v.rendTrib,
+        prevOficial: v.prevOficial,
+        prevCompl: 0,
+        pensao: 0,
+        irrf: v.irrf,
+        isen: {
+          p65: v.p65, p65_13: v.p65_13, diarias: 0, moleGrave: v.moleGrave,
+          indeniz: 0, juros: v.juros, abonoPec: 0, auxMoradia: 0, bolsaMedico: 0,
+          isenOutros: v.isenOutros,
+          outros: v.isenOutros,
+        },
+        base13,
+        irrf13: v.irrf13,
+        plr: 0, plrIrrf: 0, rra: 0, rraPrev: 0, rraIrrf: 0,
+      },
+      isenOutrosDesc: isenDesc,
+      reclamatoria: { nrProc: nrProcTrab },
+      rraInfo: null,
+      compl: { reembMed: 0, exigSusp: false, paisExt: '' },
+      deps: [],
+      pensaoPorCpf: {},
+      pensao13PorCpf: {},
+      planos: [],
+    };
   }
 
   function parseEvt(evt) {
@@ -366,6 +482,8 @@
           planos: {}, // cnpjOper -> { regANS, titMeses:{}, deps:{cpf:{meses:{}}} }
           rraInfo: null, // { custas, adv, qtdMeses, tpProc, nrProc, desc }
           compl: { reembMed: 0, exigSusp: false, paisExt: '' },
+          isenOutrosDesc: '', // descrição do isento "Outros" (ex.: reclamatória)
+          reclamatoria: null, // { nrProc }  (processo trabalhista, evtContProc)
         };
         for (let i = 1; i <= 12; i++) mdl.meses[i] = mesVazio();
         mapa.set(chave, mdl);
@@ -405,6 +523,8 @@
         mdl.compl.exigSusp = mdl.compl.exigSusp || r.compl.exigSusp;
         if (!mdl.compl.paisExt) mdl.compl.paisExt = r.compl.paisExt;
       }
+      if (r.isenOutrosDesc && !mdl.isenOutrosDesc) mdl.isenOutrosDesc = r.isenOutrosDesc;
+      if (r.reclamatoria && r.reclamatoria.nrProc && !mdl.reclamatoria) mdl.reclamatoria = r.reclamatoria;
 
       // pensoes mensais (secao 7.3) — sem o 13o, p/ bater com o totalizador
       for (const cpfDep of Object.keys(r.pensaoPorCpf)) {
@@ -484,6 +604,7 @@
   NS.informe = {
     parseXml,
     parseXmlTodos,
+    coletarNomes,
     construirModelos,
     cnpjMatriz,
     fmt: { moeda: fmtMoeda, cpf: fmtCpf, cnpj: fmtCnpj },

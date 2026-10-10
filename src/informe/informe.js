@@ -68,28 +68,33 @@
 
     const registros = [];
     const nomePorCpf = {};
+    const nomesOficiais = {}; // nomes vindos do evtProcTrab (S-2500)
     let ignorados = 0;
     for (const f of arqs) {
       try {
         const txt = await f.text();
-        const rs = NS.informe.parseXmlTodos(txt); // 1 evento por arquivo ou vários (mesclado)
+        const rs = NS.informe.parseXmlTodos(txt); // evtIrrfBenef / evtContProc (1 ou vários)
+        const nomes = NS.informe.coletarNomes(txt); // evtProcTrab (S-2500)
+        Object.assign(nomesOficiais, nomes);
         if (rs.length) {
           const nm = nomeDaPasta(f.webkitRelativePath || f.name);
           for (const r of rs) {
             registros.push(r);
             if (nm && !nomePorCpf[r.cpf]) nomePorCpf[r.cpf] = nm;
           }
-        } else {
-          ignorados++;
+        } else if (!Object.keys(nomes).length) {
+          ignorados++; // não é evento de rendimento nem cadastro de processo
         }
       } catch (_) {
         ignorados++;
       }
     }
+    // o nome oficial do S-2500 prevalece sobre o nome da pasta
+    Object.assign(nomePorCpf, nomesOficiais);
 
     if (!registros.length) {
       $('statusUpload').textContent =
-        'Nenhum evento S-5002 (evtIrrfBenef) válido foi encontrado nos XMLs.';
+        'Nenhum evento de rendimentos (S-5002 evtIrrfBenef ou S-2501 evtContProc) válido foi encontrado nos XMLs.';
       return;
     }
 
